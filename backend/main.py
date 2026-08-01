@@ -16,6 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
 SECRET_KEY = "change-this-secret-key"
 ALGORITHM = "HS256"
+ALLOWED_ROLES = {"pricing manager", "business analyst", "user"}
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
@@ -106,6 +107,19 @@ INITIAL_SALES = [
 ]
 
 
+def normalize_role(role: str) -> str:
+    normalized = (role or "pricing manager").strip().lower()
+
+    if normalized in {"manager", "pricing_manager", "pricing manager"}:
+        return "pricing manager"
+    if normalized in {"business_analyst", "business analyst", "analyst"}:
+        return "business analyst"
+    if normalized in {"user", "customer", "end_user", "end user"}:
+        return "user"
+
+    return "pricing manager"
+
+
 def seed_initial_data(db: Session):
     if db.query(Product).count() == 0:
         for product_data in INITIAL_PRODUCTS:
@@ -117,15 +131,44 @@ def seed_initial_data(db: Session):
             db.add(SalesRecord(**sale_data))
         db.commit()
 
-    if db.query(User).count() == 0:
-        demo_user = User(
-            name="Admin User",
-            email="admin@revenueiq.com",
-            password_hash=hash_password("admin123"),
-            role="manager",
-        )
-        db.add(demo_user)
-        db.commit()
+    demo_users = [
+        {
+            "name": "Pricing Manager",
+            "email": "admin@revenueiq.com",
+            "password": "admin123",
+            "role": "pricing manager",
+        },
+        {
+            "name": "Business Analyst",
+            "email": "analyst@revenueiq.com",
+            "password": "analyst123",
+            "role": "business analyst",
+        },
+        {
+            "name": "Standard User",
+            "email": "user@revenueiq.com",
+            "password": "user123",
+            "role": "user",
+        },
+    ]
+
+    for demo_user in demo_users:
+        existing = db.query(User).filter(User.email == demo_user["email"]).first()
+        if existing is None:
+            db.add(
+                User(
+                    name=demo_user["name"],
+                    email=demo_user["email"],
+                    password_hash=hash_password(demo_user["password"]),
+                    role=normalize_role(demo_user["role"]),
+                )
+            )
+        else:
+            existing.name = demo_user["name"]
+            existing.role = normalize_role(demo_user["role"])
+            existing.password_hash = hash_password(demo_user["password"])
+
+    db.commit()
 
 
 class RegisterRequest(BaseModel):
@@ -210,11 +253,12 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    role = normalize_role(data.role)
     user = User(
         name=data.name,
         email=data.email,
         password_hash=hash_password(data.password),
-        role=data.role,
+        role=role,
     )
 
     db.add(user)

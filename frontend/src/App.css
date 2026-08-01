@@ -235,7 +235,8 @@ body {
   color: #172033;
 }
 
-.login-card input {
+.login-card input,
+.login-card select {
   width: 100%;
   margin-top: 6px;
   padding: 11px 12px;
@@ -246,7 +247,8 @@ body {
   transition: all 0.2s;
 }
 
-.login-card input:focus {
+.login-card input:focus,
+.login-card select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -399,93 +401,23 @@ body {
   font-size: 14px;
 }
 
-.secondary-button {
-  white-space: nowrap;
-  background: white;
-  color: #2563eb;
-  border: 1px solid #cbd5e1;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.secondary-button:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.ghost-button {
-  background: transparent;
-  color: #2563eb;
-  border: none;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  transition: color 0.2s;
-}
-
-.ghost-button:hover {
-  color: #1d4ed8;
-}
-
-.ghost-button.dark {
-  color: #64748b;
-}
-
-.dashboard-body {
-  margin: 0;
-  padding: 0;
-  background: #f3f6fb;
-}
-
-.dashboard {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px;
-}
-
-.dashboard-header {
+.header-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
 }
 
-.dashboard-header > div {
-  flex: 1;
-}
-
-.eyebrow {
-  margin: 0 0 4px 0;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #64748b;
-}
-
-.dashboard-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 32px;
+.role-pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.dashboard-header p {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.secondary-button,
-.ghost-button {
-  white-space: nowrap;
-}
-
 .secondary-button {
+  white-space: nowrap;
   background: white;
   color: #2563eb;
   border: 1px solid #cbd5e1;
@@ -796,6 +728,22 @@ td {
   font-weight: 700;
   margin-bottom: 8px;
   color: #172033;
+}
+
+.insight-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.insight-list li {
+  padding: 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  border-left: 4px solid #2563eb;
 }
 
 .projection-box p {
