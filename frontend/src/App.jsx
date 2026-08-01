@@ -3,6 +3,7 @@ import axios from "axios";
 import "./App.css";
 
 const API = "http://127.0.0.1:8000";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const roleOptions = [
   { value: "pricing manager", label: "Pricing Manager" },
   { value: "business analyst", label: "Business Analyst" },
@@ -44,6 +45,7 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [salesInfo, setSalesInfo] = useState({ count: 0, sample: [] });
+  const [googleReady, setGoogleReady] = useState(false);
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
@@ -121,6 +123,110 @@ export default function App() {
     setUserName(auth.email.split("@")[0]);
     setUserRole(normalizedRole);
     setToken(response.data.access_token);
+  }
+
+  function decodeGoogleCredential(credential) {
+    try {
+      const payload = credential.split(".")[1];
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = atob(normalized);
+      const jsonPayload = decodeURIComponent(
+        decoded
+          .split("")
+          .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+          .join(""),
+      );
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    const role = getNormalizedRole(auth.role);
+
+    if (!GOOGLE_CLIENT_ID) {
+      const email =
+        auth.email ||
+        window.prompt(
+          "Enter an email for local Google sign-in demo",
+          "demo@revenueiq.com",
+        );
+
+      if (!email) {
+        return;
+      }
+
+      try {
+        const googleResponse = await axios.post(`${API}/auth/google`, {
+          credential: "demo-google-credential",
+          email,
+          name: email.split("@")[0],
+          role,
+        });
+
+        const normalizedRole = getNormalizedRole(
+          googleResponse.data.role || role,
+        );
+        const userName = googleResponse.data.user_name || email.split("@")[0];
+
+        localStorage.setItem("token", googleResponse.data.access_token);
+        localStorage.setItem("userName", userName);
+        localStorage.setItem("userRole", normalizedRole);
+        setUserName(userName);
+        setUserRole(normalizedRole);
+        setToken(googleResponse.data.access_token);
+      } catch (error) {
+        console.error("Google sign-in failed", error);
+        alert("Google sign-in failed. Please try again.");
+      }
+
+      return;
+    }
+
+    if (!window.google?.accounts?.id || !googleReady) {
+      alert(
+        "Google authentication is still loading. Please try again in a moment.",
+      );
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        const profile = decodeGoogleCredential(response.credential);
+
+        try {
+          const googleResponse = await axios.post(`${API}/auth/google`, {
+            credential: response.credential,
+            email: profile?.email || "",
+            name: profile?.name || profile?.given_name || "",
+            role,
+          });
+
+          const userName =
+            profile?.name ||
+            profile?.given_name ||
+            googleResponse.data.user_name ||
+            "Google User";
+          const normalizedRole = getNormalizedRole(
+            googleResponse.data.role || role,
+          );
+
+          localStorage.setItem("token", googleResponse.data.access_token);
+          localStorage.setItem("userName", userName);
+          localStorage.setItem("userRole", normalizedRole);
+          setUserName(userName);
+          setUserRole(normalizedRole);
+          setToken(googleResponse.data.access_token);
+        } catch (error) {
+          console.error("Google sign-in failed", error);
+          alert("Google sign-in failed. Please try again.");
+        }
+      },
+    });
+
+    window.google.accounts.id.prompt();
   }
 
   async function loadData() {
@@ -284,6 +390,47 @@ export default function App() {
       loadData();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      return;
+    }
+
+    const existingScript = document.getElementById("google-gsi");
+    if (existingScript) {
+      if (window.google?.accounts?.id) {
+        setGoogleReady(true);
+      }
+      return;
+    }
+
+    console.log("VITE_GOOGLE_CLIENT_ID (runtime):", GOOGLE_CLIENT_ID);
+
+    const script = document.createElement("script");
+    script.id = "google-gsi";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      const ready = Boolean(window.google?.accounts?.id);
+      console.log(
+        "Google Identity Services loaded, accounts.id present:",
+        ready,
+      );
+      if (ready) {
+        try {
+          console.log(
+            "google.accounts.id.client_id:",
+            window.google.accounts.id?.client_id || "(no client_id property)",
+          );
+        } catch (e) {
+          console.log("Unable to read google.accounts.id.client_id", e);
+        }
+      }
+      setGoogleReady(ready);
+    };
+    document.body.appendChild(script);
+  }, []);
 
   const roleCopy = getRoleCopy(userRole);
 
@@ -498,6 +645,20 @@ export default function App() {
               />
             </label>
 
+            <label>
+              Sign-in role
+              <select
+                value={auth.role}
+                onChange={(e) => setAuth({ ...auth, role: e.target.value })}
+              >
+                {roleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {mode === "register" && (
               <label>
                 Role
@@ -544,6 +705,21 @@ export default function App() {
 
             <button type="submit">
               {mode === "login" ? "Log in" : "Create account"}
+            </button>
+
+            <div className="divider">
+              <span>or</span>
+            </div>
+
+            <button
+              type="button"
+              className="google-button"
+              onClick={handleGoogleSignIn}
+              disabled={false}
+            >
+              {GOOGLE_CLIENT_ID
+                ? "Continue with Google"
+                : "Continue with Google (demo)"}
             </button>
 
             <p className="signup">

@@ -1,7 +1,9 @@
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +15,28 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
 SECRET_KEY = "change-this-secret-key"
 ALGORITHM = "HS256"
 ALLOWED_ROLES = {"pricing manager", "business analyst", "user"}
+
+
+def load_env_file():
+    env_path = BACKEND_DIR / ".env"
+    if not env_path.exists():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+load_env_file()
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
@@ -26,7 +46,7 @@ app = FastAPI(title="PricePilot AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -183,6 +203,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = ""
+    email: str = ""
+    name: str = ""
+    role: str = "user"
+
+
 class ProductRequest(BaseModel):
     name: str
     category: str
@@ -215,6 +242,29 @@ def create_token(data: dict):
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(hours=8)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_google_token(credential: str):
+    if not credential:
+        return None
+
+    try:
+        response = requests.get(
+            f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}",
+            timeout=5,
+        )
+    except requests.RequestException:
+        return None
+
+    if response.status_code != 200:
+        return None
+
+    payload = response.json()
+
+    if GOOGLE_CLIENT_ID and payload.get("aud") not in {GOOGLE_CLIENT_ID, None}:
+        return None
+
+    return payload
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -280,6 +330,48 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer",
         "role": user.role,
+    }
+
+
+@app.post("/auth/google")
+def google_login(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    payload = verify_google_token(data.credential)
+
+    if payload:
+        email = payload.get("email")
+        name = payload.get("name") or data.name or (email.split("@", 1)[0] if email else "Google User")
+    else:
+        email = data.email
+        name = data.name or (email.split("@", 1)[0] if email else "Google User")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Google email is required")
+
+    role = normalize_role(data.role)
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        user = User(
+            name=name,
+            email=email,
+            password_hash=hash_password(os.urandom(16).hex()),
+            role=role,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.name = name or user.name
+        user.role = role
+        db.commit()
+
+    token = create_token({"sub": user.email, "role": user.role})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "user_name": user.name,
     }
 
 
