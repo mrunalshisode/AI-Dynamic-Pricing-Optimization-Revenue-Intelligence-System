@@ -18,8 +18,8 @@ export default function App() {
   });
 
   const [pricingForm, setPricingForm] = useState({
-    product: "smartwatch",
-    basePrice: 120,
+    product: 0,
+    basePrice: 0,
     competitorPrice: 132,
     demandLevel: 78,
     inventoryLevel: 42,
@@ -27,6 +27,7 @@ export default function App() {
 
   const [products, setProducts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [salesInfo, setSalesInfo] = useState({ count: 0, sample: [] });
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
@@ -59,15 +60,32 @@ export default function App() {
       const dashboardResponse = await axios.get(`${API}/dashboard`, {
         headers,
       });
-      setProducts(productsResponse.data);
+      const salesCountResponse = await axios.get(`${API}/sales/count`);
+      const salesSampleResponse = await axios.get(`${API}/sales/sample`);
+
+      const fetchedProducts = productsResponse.data;
+      setProducts(fetchedProducts);
       setDashboard(dashboardResponse.data);
+      setSalesInfo({
+        count: salesCountResponse.data.sales_count,
+        sample: salesSampleResponse.data,
+      });
+
+      if (fetchedProducts.length > 0) {
+        const firstProduct = fetchedProducts[0];
+        setPricingForm((prev) => ({
+          ...prev,
+          product: firstProduct.id,
+          basePrice: firstProduct.current_price,
+        }));
+      }
 
       const savedHistory = JSON.parse(
         localStorage.getItem("pricingHistory") || "[]",
       );
       setHistory(savedHistory);
 
-      generateAlerts(productsResponse.data);
+      generateAlerts(fetchedProducts);
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -98,52 +116,70 @@ export default function App() {
   function calculateRecommendation() {
     const demand = pricingForm.demandLevel / 100;
     const inventory = pricingForm.inventoryLevel / 100;
-    const priceGap = pricingForm.competitorPrice - pricingForm.basePrice;
+    const basePrice = pricingForm.basePrice || 0;
 
-    let suggestedPrice = pricingForm.basePrice;
+    let suggestedPrice = basePrice;
     let revenueLift = 0;
     let confidence = 65;
+    let reason = "Recommendations update based on demand and inventory.";
 
-    // Calculate based on demand and inventory
     if (demand > 0.7 && inventory < 0.5) {
       revenueLift = 18.7;
-      suggestedPrice = pricingForm.basePrice * 1.15;
+      suggestedPrice = basePrice * 1.15;
       confidence = 92;
+      reason =
+        "Demand is strong, so the model recommends a controlled increase.";
     } else if (demand > 0.5) {
       revenueLift = 8.3;
-      suggestedPrice = pricingForm.basePrice * 1.08;
+      suggestedPrice = basePrice * 1.08;
       confidence = 78;
+      reason = "Moderate demand suggests a modest price increase.";
+    } else if (demand < 0.4) {
+      revenueLift = -7.2;
+      suggestedPrice = basePrice * 0.92;
+      confidence = 68;
+      reason = "Lower demand suggests a price reduction to boost volume.";
     } else if (inventory > 0.7) {
       revenueLift = -5;
-      suggestedPrice = pricingForm.basePrice * 0.95;
+      suggestedPrice = basePrice * 0.95;
       confidence = 71;
+      reason = "High inventory suggests a price reduction to accelerate sales.";
+    } else {
+      revenueLift = -2.5;
+      suggestedPrice = basePrice * 0.97;
+      confidence = 72;
+      reason =
+        "Stable demand with moderate inventory suggests a slight price adjustment.";
     }
 
-    const projectedRevenue =
-      (suggestedPrice * pricingForm.demandLevel * 100) / pricingForm.basePrice;
+    const projectedRevenue = basePrice
+      ? (suggestedPrice * pricingForm.demandLevel * 100) / basePrice
+      : 0;
 
-    setRecommendation({
+    return {
       suggestedPrice: Math.round(suggestedPrice),
       revenueLift: revenueLift.toFixed(1),
       confidence: confidence,
       projectedRevenue: Math.round(projectedRevenue),
-      reason:
-        demand > 0.7 && inventory < 0.5
-          ? "Demand is strong, so the model recommends a controlled increase."
-          : demand > 0.5
-            ? "Moderate demand suggests a modest price increase."
-            : "High inventory suggests a price reduction to accelerate sales.",
-    });
+      reason,
+    };
   }
 
   function updateRecommendation() {
-    calculateRecommendation();
+    const newRecommendation = calculateRecommendation();
+    setRecommendation(newRecommendation);
+
+    const selectedProduct = products.find(
+      (item) => item.id === pricingForm.product,
+    );
 
     const newEntry = {
       id: Date.now(),
-      product: pricingForm.product,
+      product: selectedProduct
+        ? selectedProduct.name
+        : `Product ${pricingForm.product}`,
       basePrice: pricingForm.basePrice,
-      suggestedPrice: recommendation?.suggestedPrice || pricingForm.basePrice,
+      suggestedPrice: newRecommendation.suggestedPrice,
       timestamp: new Date().toLocaleString(),
       demandLevel: pricingForm.demandLevel,
       inventoryLevel: pricingForm.inventoryLevel,
@@ -436,14 +472,30 @@ export default function App() {
               <select
                 id="productSelect"
                 value={pricingForm.product}
-                onChange={(e) =>
-                  setPricingForm({ ...pricingForm, product: e.target.value })
-                }
+                onChange={(e) => {
+                  const selectedId = Number(e.target.value);
+                  const selectedProduct = products.find(
+                    (item) => item.id === selectedId,
+                  );
+                  setPricingForm({
+                    ...pricingForm,
+                    product: selectedId,
+                    basePrice: selectedProduct
+                      ? selectedProduct.current_price
+                      : pricingForm.basePrice,
+                  });
+                  setRecommendation(null);
+                }}
               >
-                <option value="smartwatch">Smart Watch Pro</option>
-                <option value="headphones">Wireless Headphones</option>
-                <option value="speaker">Bluetooth Speaker</option>
-                <option value="camera">Action Camera</option>
+                {products.length > 0 ? (
+                  products.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Select a product</option>
+                )}
               </select>
             </label>
 
@@ -548,8 +600,10 @@ export default function App() {
                         <td>${item.current_price}</td>
                         <td>
                           $
-                          {recommendation
-                            ? recommendation.suggestedPrice
+                          {item.id === pricingForm.product
+                            ? recommendation
+                              ? recommendation.suggestedPrice
+                              : item.current_price
                             : item.current_price}
                         </td>
                         <td>
@@ -572,6 +626,47 @@ export default function App() {
               <p className="empty-state" id="productEmpty">
                 No products match your search.
               </p>
+            </div>
+          </section>
+
+          <section className="tool-panel">
+            <div className="panel-title">
+              <p className="eyebrow">Dataset</p>
+              <h2>Sales Verification</h2>
+            </div>
+            <div className="verification-box">
+              <p>
+                Loaded sales rows:
+                <strong> {salesInfo.count || "0"}</strong>
+              </p>
+              <div className="sample-table-wrap">
+                <table className="sample-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Price</th>
+                      <th>Qty Sold</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesInfo.sample.length > 0 ? (
+                      salesInfo.sample.map((row, index) => (
+                        <tr key={index}>
+                          <td>{row.product_name}</td>
+                          <td>${row.price}</td>
+                          <td>{row.quantity_sold || row.units_sold}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" style={{ textAlign: "center" }}>
+                          No sales sample loaded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </section>

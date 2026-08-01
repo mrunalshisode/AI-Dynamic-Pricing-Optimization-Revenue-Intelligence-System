@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from pathlib import Path
+
 import pandas as pd
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
@@ -10,7 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
-DATABASE_URL = "sqlite:///./pricepilot.db"
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
 SECRET_KEY = "change-this-secret-key"
 ALGORITHM = "HS256"
 
@@ -66,6 +69,64 @@ class SalesRecord(Base):
 
 Base.metadata.create_all(bind=engine)
 
+INITIAL_PRODUCTS = [
+    {"name": "Wireless Headphones", "category": "Audio", "current_price": 1999.0, "cost_price": 1299.0, "stock": 85},
+    {"name": "Smartwatch", "category": "Wearables", "current_price": 3499.0, "cost_price": 2299.0, "stock": 64},
+    {"name": "Bluetooth Speaker", "category": "Audio", "current_price": 1499.0, "cost_price": 899.0, "stock": 92},
+    {"name": "Gaming Mouse", "category": "Peripherals", "current_price": 1199.0, "cost_price": 699.0, "stock": 120},
+    {"name": "Mechanical Keyboard", "category": "Peripherals", "current_price": 2499.0, "cost_price": 1599.0, "stock": 78},
+    {"name": "4K Monitor", "category": "Displays", "current_price": 18999.0, "cost_price": 12999.0, "stock": 47},
+    {"name": "Laptop", "category": "Computers", "current_price": 59999.0, "cost_price": 44999.0, "stock": 36},
+    {"name": "Smartphone", "category": "Mobiles", "current_price": 39999.0, "cost_price": 29999.0, "stock": 55},
+    {"name": "Tablet", "category": "Mobiles", "current_price": 27999.0, "cost_price": 19999.0, "stock": 41},
+    {"name": "Webcam", "category": "Accessories", "current_price": 3499.0, "cost_price": 2299.0, "stock": 70},
+    {"name": "External SSD", "category": "Storage", "current_price": 8999.0, "cost_price": 5999.0, "stock": 63},
+    {"name": "Portable Charger", "category": "Accessories", "current_price": 1999.0, "cost_price": 1199.0, "stock": 88},
+    {"name": "Smart Lamp", "category": "Home", "current_price": 2999.0, "cost_price": 1899.0, "stock": 52},
+    {"name": "Fitness Band", "category": "Wearables", "current_price": 2499.0, "cost_price": 1499.0, "stock": 74},
+    {"name": "Noise-Canceling Earbuds", "category": "Audio", "current_price": 2999.0, "cost_price": 1799.0, "stock": 91},
+]
+
+INITIAL_SALES = [
+    {"product_name": "Wireless Headphones", "units_sold": 48, "revenue": 95952.0, "price": 1999.0},
+    {"product_name": "Smartwatch", "units_sold": 36, "revenue": 125964.0, "price": 3499.0},
+    {"product_name": "Bluetooth Speaker", "units_sold": 54, "revenue": 80946.0, "price": 1499.0},
+    {"product_name": "Gaming Mouse", "units_sold": 72, "revenue": 86328.0, "price": 1199.0},
+    {"product_name": "Mechanical Keyboard", "units_sold": 41, "revenue": 102459.0, "price": 2499.0},
+    {"product_name": "4K Monitor", "units_sold": 27, "revenue": 512973.0, "price": 18999.0},
+    {"product_name": "Laptop", "units_sold": 19, "revenue": 1_139_981.0, "price": 59999.0},
+    {"product_name": "Smartphone", "units_sold": 33, "revenue": 1_319_967.0, "price": 39999.0},
+    {"product_name": "Tablet", "units_sold": 22, "revenue": 615_978.0, "price": 27999.0},
+    {"product_name": "Webcam", "units_sold": 60, "revenue": 209_940.0, "price": 3499.0},
+    {"product_name": "External SSD", "units_sold": 28, "revenue": 251_972.0, "price": 8999.0},
+    {"product_name": "Portable Charger", "units_sold": 67, "revenue": 133_933.0, "price": 1999.0},
+    {"product_name": "Smart Lamp", "units_sold": 31, "revenue": 92_969.0, "price": 2999.0},
+    {"product_name": "Fitness Band", "units_sold": 45, "revenue": 112_455.0, "price": 2499.0},
+    {"product_name": "Noise-Canceling Earbuds", "units_sold": 58, "revenue": 173_942.0, "price": 2999.0},
+]
+
+
+def seed_initial_data(db: Session):
+    if db.query(Product).count() == 0:
+        for product_data in INITIAL_PRODUCTS:
+            db.add(Product(**product_data))
+        db.commit()
+
+    if db.query(SalesRecord).count() == 0:
+        for sale_data in INITIAL_SALES:
+            db.add(SalesRecord(**sale_data))
+        db.commit()
+
+    if db.query(User).count() == 0:
+        demo_user = User(
+            name="Admin User",
+            email="admin@revenueiq.com",
+            password_hash=hash_password("admin123"),
+            role="manager",
+        )
+        db.add(demo_user)
+        db.commit()
+
 
 class RegisterRequest(BaseModel):
     name: str
@@ -95,6 +156,10 @@ def get_db():
         db.close()
 
 
+def to_dict(instance):
+    return {column.name: getattr(instance, column.name) for column in instance.__table__.columns}
+
+
 def hash_password(password):
     return pwd_context.hash(password)
 
@@ -122,6 +187,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
+
+@app.on_event("startup")
+def initialize_database():
+    db = SessionLocal()
+    try:
+        seed_initial_data(db)
+    finally:
+        db.close()
 
 
 @app.get("/")
@@ -181,11 +255,26 @@ def create_product(
 
 
 @app.get("/products")
-def list_products(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    return db.query(Product).all()
+def list_products(db: Session = Depends(get_db)):
+    products = db.query(Product).all()
+    return [to_dict(product) for product in products]
+
+
+@app.get("/sales")
+def get_sales(db: Session = Depends(get_db)):
+    sales = db.query(SalesRecord).all()
+    return [to_dict(record) for record in sales]
+
+
+@app.get("/sales/count")
+def get_sales_count(db: Session = Depends(get_db)):
+    return {"sales_count": db.query(SalesRecord).count()}
+
+
+@app.get("/sales/sample")
+def get_sales_sample(db: Session = Depends(get_db)):
+    sales = db.query(SalesRecord).order_by(SalesRecord.id).limit(10).all()
+    return [to_dict(record) for record in sales]
 
 
 @app.delete("/products/{product_id}")
@@ -209,24 +298,28 @@ def delete_product(
 def upload_sales_dataset(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
 ):
     df = pd.read_csv(file.file)
 
-    required_columns = {"product_name", "units_sold", "revenue", "price"}
-
+    # Support both the original schema and common retail CSV columns
+    required_columns = {"product_name", "price", "quantity_sold"}
     if not required_columns.issubset(df.columns):
         raise HTTPException(
             status_code=400,
-            detail="CSV must contain product_name, units_sold, revenue, price",
+            detail="CSV must contain product_name, price, quantity_sold",
         )
 
     for _, row in df.iterrows():
+        product_name = row["product_name"]
+        price = float(row["price"])
+        units_sold = int(row.get("quantity_sold", row.get("units_sold", 0)))
+        revenue = float(row.get("revenue", price * units_sold))
+
         record = SalesRecord(
-            product_name=row["product_name"],
-            units_sold=int(row["units_sold"]),
-            revenue=float(row["revenue"]),
-            price=float(row["price"]),
+            product_name=product_name,
+            units_sold=units_sold,
+            revenue=revenue,
+            price=price,
         )
         db.add(record)
 
@@ -239,10 +332,7 @@ def upload_sales_dataset(
 
 
 @app.get("/dashboard")
-def dashboard(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+def dashboard(db: Session = Depends(get_db)):
     products = db.query(Product).all()
     sales = db.query(SalesRecord).all()
 
@@ -260,4 +350,3 @@ def dashboard(
         "total_units_sold": total_units,
         "average_product_price": round(average_price, 2),
     }
-
