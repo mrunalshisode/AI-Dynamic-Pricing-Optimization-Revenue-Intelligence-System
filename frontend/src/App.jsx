@@ -49,6 +49,17 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
+  const [productForm, setProductForm] = useState({
+    id: null,
+    name: "",
+    category: "",
+    current_price: "",
+    cost_price: "",
+    stock: "",
+  });
+  const [productMessage, setProductMessage] = useState({ type: "", text: "" });
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [activeView, setActiveView] = useState("dashboard");
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -370,6 +381,129 @@ export default function App() {
     localStorage.removeItem("pricingHistory");
   }
 
+  function resetProductForm() {
+    setProductForm({
+      id: null,
+      name: "",
+      category: "",
+      current_price: "",
+      cost_price: "",
+      stock: "",
+    });
+    setProductMessage({ type: "", text: "" });
+  }
+
+  function validateProductForm(form) {
+    if (!form.name.trim()) {
+      return "Product name is required.";
+    }
+
+    if (!form.category.trim()) {
+      return "Category is required.";
+    }
+
+    const parsedPrice = Number(form.current_price);
+    const parsedCost = Number(form.cost_price);
+    const parsedStock = Number(form.stock);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      return "Current price must be a non-negative number.";
+    }
+
+    if (!Number.isFinite(parsedCost) || parsedCost < 0) {
+      return "Cost price must be a non-negative number.";
+    }
+
+    if (!Number.isInteger(parsedStock) || parsedStock < 0) {
+      return "Stock must be a whole number greater than or equal to zero.";
+    }
+
+    return "";
+  }
+
+  async function submitProductForm(event) {
+    event.preventDefault();
+
+    const validationMessage = validateProductForm(productForm);
+    if (validationMessage) {
+      setProductMessage({ type: "error", text: validationMessage });
+      return;
+    }
+
+    setIsSavingProduct(true);
+    setProductMessage({ type: "", text: "" });
+
+    const payload = {
+      name: productForm.name.trim(),
+      category: productForm.category.trim(),
+      current_price: Number(productForm.current_price || 0),
+      cost_price: Number(productForm.cost_price || 0),
+      stock: Number(productForm.stock || 0),
+    };
+
+    try {
+      if (productForm.id) {
+        await axios.put(`${API}/products/${productForm.id}`, payload, {
+          headers,
+        });
+        setProductMessage({
+          type: "success",
+          text: "Product updated successfully.",
+        });
+      } else {
+        await axios.post(`${API}/products`, payload, { headers });
+        setProductMessage({
+          type: "success",
+          text: "Product added successfully.",
+        });
+      }
+
+      await loadData();
+      resetProductForm();
+    } catch (error) {
+      console.error("Unable to save product", error);
+      const detail = error.response?.data?.detail || "Unable to save product.";
+      setProductMessage({ type: "error", text: detail });
+    } finally {
+      setIsSavingProduct(false);
+    }
+  }
+
+  function editProduct(product) {
+    setProductForm({
+      id: product.id,
+      name: product.name,
+      category: product.category || "",
+      current_price: product.current_price ?? "",
+      cost_price: product.cost_price ?? "",
+      stock: product.stock ?? "",
+    });
+    setProductMessage({ type: "", text: "" });
+  }
+
+  async function deleteProduct(productId) {
+    if (!window.confirm("Delete this product from the catalog?")) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API}/products/${productId}`, { headers });
+      await loadData();
+      if (productForm.id === productId) {
+        resetProductForm();
+      }
+      setProductMessage({
+        type: "success",
+        text: "Product deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Unable to delete product", error);
+      const detail =
+        error.response?.data?.detail || "Unable to delete product.";
+      setProductMessage({ type: "error", text: detail });
+    }
+  }
+
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
@@ -390,6 +524,18 @@ export default function App() {
       loadData();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!productMessage.text) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setProductMessage({ type: "", text: "" });
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [productMessage.text]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
@@ -440,6 +586,7 @@ export default function App() {
           { label: "Demand Insights", href: "#analysisPanel" },
           { label: "Forecast View", href: "#forecastPanel" },
           { label: "Data Quality", href: "#salesPanel" },
+          { label: "Products", type: "view", view: "products" },
         ]
       : getNormalizedRole(userRole) === "user"
         ? [
@@ -449,7 +596,7 @@ export default function App() {
           ]
         : [
             { label: "Optimizer", href: "#pricingForm" },
-            { label: "Products", href: "#productTable" },
+            { label: "Products", type: "view", view: "products" },
             { label: "History", href: "#historyList" },
           ];
 
@@ -508,6 +655,8 @@ export default function App() {
               description: "Confidence reflects current market conditions.",
             },
           ];
+
+  const showProductsPage = activeView === "products";
 
   if (!token) {
     return (
@@ -758,11 +907,21 @@ export default function App() {
         </header>
 
         <section className="quick-actions" aria-label="Quick actions">
-          {roleActions.map((action) => (
-            <a key={action.label} href={action.href}>
-              {action.label}
-            </a>
-          ))}
+          {roleActions.map((action) =>
+            action.type === "view" ? (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => setActiveView(action.view || "dashboard")}
+              >
+                {action.label}
+              </button>
+            ) : (
+              <a key={action.label} href={action.href}>
+                {action.label}
+              </a>
+            ),
+          )}
           <button
             className="ghost-button"
             onClick={() => window.location.reload()}
@@ -781,7 +940,205 @@ export default function App() {
           ))}
         </section>
 
-        {getNormalizedRole(userRole) === "pricing manager" ? (
+        {showProductsPage ? (
+          <section
+            className="product-shell"
+            aria-label="Product management page"
+          >
+            <div className="panel-title panel-title-row">
+              <div>
+                <p className="eyebrow">Catalog</p>
+                <h2>Product Catalog</h2>
+              </div>
+              <div className="inline-actions">
+                <button
+                  className="secondary-action compact-button"
+                  type="button"
+                  onClick={() => setActiveView("dashboard")}
+                >
+                  Back to dashboard
+                </button>
+              </div>
+            </div>
+
+            <section
+              className="tool-panel product-manager-panel"
+              aria-label="Product catalog manager"
+            >
+              <div className="panel-title panel-title-row">
+                <div>
+                  <p className="eyebrow">Catalog</p>
+                  <h2>Manage Products</h2>
+                </div>
+                <button
+                  className="secondary-action compact-button"
+                  type="button"
+                  onClick={resetProductForm}
+                >
+                  New product
+                </button>
+              </div>
+
+              <form
+                className="product-manager-grid"
+                onSubmit={submitProductForm}
+              >
+                <label>
+                  Product name
+                  <input
+                    type="text"
+                    value={productForm.name}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Smart Speaker"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Category
+                  <input
+                    type="text"
+                    value={productForm.category}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        category: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Audio"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Current price
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.current_price}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        current_price: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Cost price
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.cost_price}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        cost_price: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Stock
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.stock}
+                    onChange={(event) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        stock: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <div className="button-row">
+                  <button type="submit" disabled={isSavingProduct}>
+                    {isSavingProduct
+                      ? "Saving..."
+                      : productForm.id
+                        ? "Update Product"
+                        : "Add Product"}
+                  </button>
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    onClick={resetProductForm}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </form>
+
+              {productMessage.text ? (
+                <p className={`message ${productMessage.type}`}>
+                  {productMessage.text}
+                </p>
+              ) : null}
+
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Stock</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.length > 0 ? (
+                      products.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.name}</td>
+                          <td>{item.category}</td>
+                          <td>${item.current_price}</td>
+                          <td>{item.stock}</td>
+                          <td>
+                            <div className="inline-actions">
+                              <button
+                                type="button"
+                                className="link-button compact-button"
+                                onClick={() => editProduct(item)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary-button compact-button"
+                                onClick={() => deleteProduct(item.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          style={{ textAlign: "center", padding: "20px" }}
+                        >
+                          No products available yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        ) : getNormalizedRole(userRole) === "pricing manager" ? (
           <>
             <section className="workspace-grid" aria-label="Pricing tools">
               <form

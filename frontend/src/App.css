@@ -635,6 +635,31 @@ body {
   margin-top: 20px;
 }
 
+.product-manager-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.product-manager-grid label {
+  margin-bottom: 0;
+}
+
+.product-manager-panel .button-row {
+  grid-column: 1 / -1;
+}
+
+.product-manager-panel .compact-button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .button-row button {
   padding: 10px;
   border: none;
@@ -664,10 +689,33 @@ body {
   background: #f8fafc;
 }
 
+.button-row button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .message {
   margin-top: 12px;
   font-size: 13px;
   color: #64748b;
+}
+
+.message.error {
+  color: #b91c1c;
+}
+
+.message.success {
+  color: #166534;
+}
+
+.product-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.product-shell .panel-title-row {
+  margin-bottom: 0;
 }
 
 .table-wrap {
@@ -865,6 +913,15 @@ button:active {
 }
 
 @media (max-width: 640px) {
+  .product-manager-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-shell .panel-title-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .dashboard {
     padding: 12px;
   }

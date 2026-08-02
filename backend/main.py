@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
@@ -46,7 +46,7 @@ app = FastAPI(title="PricePilot AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -211,11 +211,11 @@ class GoogleAuthRequest(BaseModel):
 
 
 class ProductRequest(BaseModel):
-    name: str
-    category: str
-    current_price: float
-    cost_price: float
-    stock: int
+    name: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    current_price: float = Field(ge=0)
+    cost_price: float = Field(ge=0)
+    stock: int = Field(ge=0)
 
 
 def get_db():
@@ -411,6 +411,30 @@ def get_sales_count(db: Session = Depends(get_db)):
 def get_sales_sample(db: Session = Depends(get_db)):
     sales = db.query(SalesRecord).order_by(SalesRecord.id).limit(10).all()
     return [to_dict(record) for record in sales]
+
+
+@app.put("/products/{product_id}")
+def update_product(
+    product_id: int,
+    data: ProductRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    product.name = data.name
+    product.category = data.category
+    product.current_price = data.current_price
+    product.cost_price = data.cost_price
+    product.stock = data.stock
+
+    db.commit()
+    db.refresh(product)
+
+    return product
 
 
 @app.delete("/products/{product_id}")
