@@ -526,91 +526,39 @@ export default function App() {
     }
   }
 
-  async function handleGoogleSignIn() {
+  // Handle credential response callback from Google
+  async function handleGoogleCredentialResponse(response) {
     const role = getNormalizedRole(auth.role);
+    const profile = decodeGoogleCredential(response.credential);
 
-    if (!GOOGLE_CLIENT_ID) {
-      const email =
-        auth.email ||
-        window.prompt(
-          "Enter an email for local Google sign-in demo",
-          "demo@revenueiq.com",
-        );
+    try {
+      const googleResponse = await axios.post(`${API}/auth/google`, {
+        credential: response.credential,
+        email: profile?.email || "",
+        name: profile?.name || profile?.given_name || "",
+        role,
+      });
 
-      if (!email) {
-        return;
-      }
-
-      try {
-        const googleResponse = await axios.post(`${API}/auth/google`, {
-          credential: "demo-google-credential",
-          email,
-          name: email.split("@")[0],
-          role,
-        });
-
-        const normalizedRole = getNormalizedRole(
-          googleResponse.data.role || role,
-        );
-        const userName = googleResponse.data.user_name || email.split("@")[0];
-
-        localStorage.setItem("token", googleResponse.data.access_token);
-        localStorage.setItem("userName", userName);
-        localStorage.setItem("userRole", normalizedRole);
-        setUserName(userName);
-        setUserRole(normalizedRole);
-        setToken(googleResponse.data.access_token);
-      } catch (error) {
-        console.error("Google sign-in failed", error);
-        alert("Google sign-in failed. Please try again.");
-      }
-
-      return;
-    }
-
-    if (!window.google?.accounts?.id || !googleReady) {
-      alert(
-        "Google authentication is still loading. Please try again in a moment.",
+      const userName =
+        profile?.name ||
+        profile?.given_name ||
+        googleResponse.data.user_name ||
+        "Google User";
+      const normalizedRole = getNormalizedRole(
+        googleResponse.data.role || role,
       );
-      return;
+
+      localStorage.setItem("token", googleResponse.data.access_token);
+      localStorage.setItem("userName", userName);
+      localStorage.setItem("userRole", normalizedRole);
+      setUserName(userName);
+      setUserRole(normalizedRole);
+      setToken(googleResponse.data.access_token);
+      showToast("Logged in with Google successfully!", "success");
+    } catch (error) {
+      console.error("Google sign-in failed", error);
+      showToast("Google sign-in failed. Please try again.", "error");
     }
-
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (response) => {
-        const profile = decodeGoogleCredential(response.credential);
-
-        try {
-          const googleResponse = await axios.post(`${API}/auth/google`, {
-            credential: response.credential,
-            email: profile?.email || "",
-            name: profile?.name || profile?.given_name || "",
-            role,
-          });
-
-          const userName =
-            profile?.name ||
-            profile?.given_name ||
-            googleResponse.data.user_name ||
-            "Google User";
-          const normalizedRole = getNormalizedRole(
-            googleResponse.data.role || role,
-          );
-
-          localStorage.setItem("token", googleResponse.data.access_token);
-          localStorage.setItem("userName", userName);
-          localStorage.setItem("userRole", normalizedRole);
-          setUserName(userName);
-          setUserRole(normalizedRole);
-          setToken(googleResponse.data.access_token);
-        } catch (error) {
-          console.error("Google sign-in failed", error);
-          alert("Google sign-in failed. Please try again.");
-        }
-      },
-    });
-
-    window.google.accounts.id.prompt();
   }
 
   async function loadData() {
@@ -914,14 +862,33 @@ export default function App() {
     }
 
     const existingScript = document.getElementById("google-gsi");
-    if (existingScript) {
+    
+    const initializeGoogle = () => {
       if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse,
+        });
+
+        const btnDiv = document.getElementById("google-signin-btn");
+        if (btnDiv) {
+          window.google.accounts.id.renderButton(btnDiv, {
+            theme: "outline",
+            size: "large",
+            width: "320",
+            type: "standard",
+            text: "continue_with",
+            shape: "rectangular",
+          });
+        }
         setGoogleReady(true);
       }
+    };
+
+    if (existingScript) {
+      initializeGoogle();
       return;
     }
-
-    console.log("VITE_GOOGLE_CLIENT_ID (runtime):", GOOGLE_CLIENT_ID);
 
     const script = document.createElement("script");
     script.id = "google-gsi";
@@ -929,25 +896,10 @@ export default function App() {
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      const ready = Boolean(window.google?.accounts?.id);
-      console.log(
-        "Google Identity Services loaded, accounts.id present:",
-        ready,
-      );
-      if (ready) {
-        try {
-          console.log(
-            "google.accounts.id.client_id:",
-            window.google.accounts.id?.client_id || "(no client_id property)",
-          );
-        } catch (e) {
-          console.log("Unable to read google.accounts.id.client_id", e);
-        }
-      }
-      setGoogleReady(ready);
+      initializeGoogle();
     };
     document.body.appendChild(script);
-  }, []);
+  }, [GOOGLE_CLIENT_ID, mode]);
 
   const roleCopy = getRoleCopy(userRole);
 
@@ -1242,16 +1194,15 @@ export default function App() {
               <span>or</span>
             </div>
 
-            <button
-              type="button"
-              className="google-button"
-              onClick={handleGoogleSignIn}
-              disabled={isSubmittingAuth}
-            >
-              {GOOGLE_CLIENT_ID
-                ? "Continue with Google"
-                : "Continue with Google (demo)"}
-            </button>
+            {GOOGLE_CLIENT_ID ? (
+              <div className="google-signin-container">
+                <div id="google-signin-btn"></div>
+              </div>
+            ) : (
+              <p className="signup" style={{ textAlign: "center", color: "#ef4444" }}>
+                Google Client ID is missing. Configure it in .env.local
+              </p>
+            )}
 
             <p className="signup">
               {mode === "login" ? "New analyst?" : "Already registered?"}

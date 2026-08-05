@@ -1,0 +1,136 @@
+import os
+import sys
+import json
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.append(str(BASE_DIR))
+
+# Reuse the existing MongoDB connection
+from database.mongodb import db
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("services.model_registry")
+
+def register_model(
+    model_name: str = "price_prediction_xgboost",
+    model_path: Optional[str] = None,
+    metrics_path: Optional[str] = None,
+    status: str = "active"
+) -> dict:
+    """
+    Reads existing model metrics and registers/updates model metadata in MongoDB.
+    
+    Args:
+        model_name (str): Unique name identifier for the model.
+        model_path (str, optional): Custom path to the saved model file.
+        metrics_path (str, optional): Custom path to the model metrics JSON file.
+        status (str): Current status of the model (e.g. 'active', 'deprecated').
+        
+    Returns:
+        dict: The registered/updated model document.
+    """
+    logger.info(f"Initiating registration for model: '{model_name}'")
+    
+    # Define default paths relative to BASE_DIR if not provided
+    if model_path is None:
+        model_file = BASE_DIR / "saved_models" / "price_prediction_xgboost.joblib"
+    else:
+        model_file = Path(model_path)
+        
+    if metrics_path is None:
+        metrics_file = BASE_DIR / "reports" / "model_metrics.json"
+    else:
+        metrics_file = Path(metrics_path)
+        
+    # Read existing metrics report
+    if not metrics_file.exists():
+        raise FileNotFoundError(f"Model metrics file not found at: {metrics_file}")
+        
+    try:
+        with open(metrics_file, "r", encoding="utf-8") as f:
+            metrics_report = json.load(f)
+    except Exception as e:
+        raise ValueError(f"Failed to parse metrics JSON from {metrics_file}: {e}")
+        
+    # Extract metadata fields from metrics report
+    algorithm = metrics_report.get("model_type", "XGBoost Regressor")
+    dataset_used = metrics_report.get("dataset_name", "Unknown")
+    
+    features = metrics_report.get("features_used", [])
+    num_features = len(features)
+    
+    # Read metrics (try test first, then validation as fallback)
+    metrics_block = metrics_report.get("metrics", {})
+    target_metrics = metrics_block.get("test", metrics_block.get("validation", {}))
+    
+    mae = target_metrics.get("mae")
+    rmse = target_metrics.get("rmse")
+    mape = target_metrics.get("mape")
+    r2_score = target_metrics.get("r2_score")
+    
+    # Extract training time and date if available
+    training_time = metrics_report.get("training_time")
+    training_date_str = metrics_report.get("training_date")
+    
+    # Fallbacks if metrics_report didn't have time/date yet
+    if training_time is None:
+        training_time = 0.0
+        
+    if training_date_str:
+        try:
+            training_date = datetime.fromisoformat(training_date_str)
+        except Exception:
+            training_date = datetime.now(timezone.utc)
+    else:
+        # Fallback to file modification time
+        try:
+            mtime = metrics_file.stat().st_mtime
+            training_date = datetime.fromtimestamp(mtime)
+        except Exception:
+            training_date = datetime.now(timezone.utc)
+
+    # Formulate model metadata document
+    model_metadata = {
+        "Model Name": model_name,
+        "Algorithm": algorithm,
+        "Training Date": training_date,
+        "Dataset Used": dataset_used,
+        "Number of Features": num_features,
+        "MAE": mae,
+        "RMSE": rmse,
+        "MAPE": mape,
+        "R² Score": r2_score,
+        "Model File Location": str(model_file.resolve()),
+        "Training Time": training_time,
+        "Status": status
+    }
+    
+    if db is None:
+        raise ConnectionError("MongoDB database connection is not initialized.")
+        
+    try:
+        # Upsert the model entry by Model Name
+        db.model_registry.update_one(
+            {"Model Name": model_name},
+            {"$set": model_metadata},
+            upsert=True
+        )
+        print(f"Success: Model '{model_name}' successfully registered in MongoDB Model Registry.")
+        logger.info(f"Registered model details: {model_metadata}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to write model metadata to MongoDB: {e}")
+        
+    return model_metadata
+
+if __name__ == "__main__":
+    # Test script run to register default model if executed directly
+    try:
+        register_model()
+    except Exception as err:
+        print(f"Error during registration run: {err}")
