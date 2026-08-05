@@ -284,6 +284,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.on_event("startup")
 def initialize_database():
+    try:
+        from database.health import run_database_health_checks
+        run_database_health_checks()
+    except Exception as e:
+        print(f"Error running database health checks: {e}")
+
     db = SessionLocal()
     try:
         seed_initial_data(db)
