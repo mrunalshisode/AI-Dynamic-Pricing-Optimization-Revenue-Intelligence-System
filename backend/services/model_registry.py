@@ -39,12 +39,19 @@ def register_model(
     
     # Define default paths relative to BASE_DIR if not provided
     if model_path is None:
-        model_file = BASE_DIR / "saved_models" / "price_prediction_xgboost.joblib"
+        model_file = BASE_DIR / "saved_models" / f"{model_name}.joblib"
     else:
         model_file = Path(model_path)
         
     if metrics_path is None:
-        metrics_file = BASE_DIR / "reports" / "model_metrics.json"
+        if model_name == "price_prediction_xgboost":
+            metrics_file = BASE_DIR / "reports" / "model_metrics.json"
+        elif model_name == "price_prediction_lightgbm":
+            metrics_file = BASE_DIR / "reports" / "lightgbm_metrics.json"
+        else:
+            # General fallback for any future model
+            metrics_name = model_name.replace("price_prediction_", "")
+            metrics_file = BASE_DIR / "reports" / f"{metrics_name}_metrics.json"
     else:
         metrics_file = Path(metrics_path)
         
@@ -59,7 +66,7 @@ def register_model(
         raise ValueError(f"Failed to parse metrics JSON from {metrics_file}: {e}")
         
     # Extract metadata fields from metrics report
-    algorithm = metrics_report.get("model_type", "XGBoost Regressor")
+    algorithm = metrics_report.get("model_type", "Unknown Regressor")
     dataset_used = metrics_report.get("dataset_name", "Unknown")
     
     features = metrics_report.get("features_used", [])
@@ -102,11 +109,14 @@ def register_model(
         "Training Date": training_date,
         "Dataset Used": dataset_used,
         "Number of Features": num_features,
+        "Feature Count": num_features,
         "MAE": mae,
         "RMSE": rmse,
         "MAPE": mape,
         "R² Score": r2_score,
+        "R²": r2_score,
         "Model File Location": str(model_file.resolve()),
+        "Model Path": str(model_file.resolve()),
         "Training Time": training_time,
         "Status": status
     }
@@ -129,8 +139,17 @@ def register_model(
     return model_metadata
 
 if __name__ == "__main__":
-    # Test script run to register default model if executed directly
+    # Register both models if executed directly
+    print("Running Model Registry batch registration...")
+    
+    # 1. Register XGBoost Model
     try:
-        register_model()
+        register_model(model_name="price_prediction_xgboost")
     except Exception as err:
-        print(f"Error during registration run: {err}")
+        print(f"Error during XGBoost model registration: {err}")
+        
+    # 2. Register LightGBM Model
+    try:
+        register_model(model_name="price_prediction_lightgbm")
+    except Exception as err:
+        print(f"Error during LightGBM model registration: {err}")
