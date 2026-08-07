@@ -39,7 +39,10 @@ def register_model(
     
     # Define default paths relative to BASE_DIR if not provided
     if model_path is None:
-        model_file = BASE_DIR / "saved_models" / f"{model_name}.joblib"
+        if model_name == "demand_forecast_prophet" or model_name.endswith("_prophet") or model_name.startswith("demand_forecast"):
+            model_file = BASE_DIR / "saved_models" / f"{model_name}.pkl"
+        else:
+            model_file = BASE_DIR / "saved_models" / f"{model_name}.joblib"
     else:
         model_file = Path(model_path)
         
@@ -48,6 +51,8 @@ def register_model(
             metrics_file = BASE_DIR / "reports" / "model_metrics.json"
         elif model_name == "price_prediction_lightgbm":
             metrics_file = BASE_DIR / "reports" / "lightgbm_metrics.json"
+        elif model_name == "demand_forecast_prophet":
+            metrics_file = BASE_DIR / "reports" / "demand_forecast.json"
         else:
             # General fallback for any future model
             metrics_name = model_name.replace("price_prediction_", "")
@@ -72,18 +77,18 @@ def register_model(
     features = metrics_report.get("features_used", [])
     num_features = len(features)
     
-    # Read metrics (try test first, then validation as fallback)
+    # Read metrics (try test first, then validation, then validation_holdout as fallback)
     metrics_block = metrics_report.get("metrics", {})
-    target_metrics = metrics_block.get("test", metrics_block.get("validation", {}))
+    target_metrics = metrics_block.get("test", metrics_block.get("validation", metrics_block.get("validation_holdout", {})))
     
     mae = target_metrics.get("mae")
     rmse = target_metrics.get("rmse")
     mape = target_metrics.get("mape")
     r2_score = target_metrics.get("r2_score")
     
-    # Extract training time and date if available
-    training_time = metrics_report.get("training_time")
-    training_date_str = metrics_report.get("training_date")
+    # Extract training time and date if available (supporting Prophet keys too)
+    training_time = metrics_report.get("training_time", metrics_report.get("training_time_seconds"))
+    training_date_str = metrics_report.get("training_date", metrics_report.get("run_date"))
     
     # Fallbacks if metrics_report didn't have time/date yet
     if training_time is None:
@@ -101,6 +106,17 @@ def register_model(
             training_date = datetime.fromtimestamp(mtime)
         except Exception:
             training_date = datetime.now(timezone.utc)
+
+    # Extract Forecast Horizons if present (e.g. for forecasting models like Prophet)
+    forecasts_block = metrics_report.get("forecasts", {})
+    forecast_horizons = []
+    if forecasts_block:
+        for h_key in forecasts_block.keys():
+            try:
+                days = int(h_key.split('_')[0])
+                forecast_horizons.append(days)
+            except ValueError:
+                pass
 
     # Formulate model metadata document
     model_metadata = {
@@ -120,6 +136,9 @@ def register_model(
         "Training Time": training_time,
         "Status": status
     }
+    
+    if forecast_horizons:
+        model_metadata["Forecast Horizons"] = sorted(forecast_horizons)
     
     if db is None:
         raise ConnectionError("MongoDB database connection is not initialized.")
@@ -153,3 +172,9 @@ if __name__ == "__main__":
         register_model(model_name="price_prediction_lightgbm")
     except Exception as err:
         print(f"Error during LightGBM model registration: {err}")
+        
+    # 3. Register Prophet Model
+    try:
+        register_model(model_name="demand_forecast_prophet")
+    except Exception as err:
+        print(f"Error during Prophet model registration: {err}")
