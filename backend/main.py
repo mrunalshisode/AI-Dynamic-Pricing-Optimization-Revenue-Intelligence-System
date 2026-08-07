@@ -48,6 +48,10 @@ app = FastAPI(title="PricePilot AI API")
 from routes.ai import router as ai_router
 app.include_router(ai_router)
 
+# Register Dashboard router
+from routes.dashboard import router as dashboard_router
+app.include_router(dashboard_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
