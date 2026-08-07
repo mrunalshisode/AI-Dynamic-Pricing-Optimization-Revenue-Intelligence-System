@@ -44,6 +44,10 @@ Base = declarative_base()
 
 app = FastAPI(title="PricePilot AI API")
 
+# Register AI router
+from routes.ai import router as ai_router
+app.include_router(ai_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
@@ -284,6 +288,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.on_event("startup")
 def initialize_database():
+    try:
+        from database.health import run_database_health_checks
+        run_database_health_checks()
+    except Exception as e:
+        print(f"Error running database health checks: {e}")
+
     db = SessionLocal()
     try:
         seed_initial_data(db)

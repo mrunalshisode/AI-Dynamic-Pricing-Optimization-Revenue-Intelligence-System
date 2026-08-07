@@ -352,6 +352,14 @@ body {
   margin: 0 10px;
 }
 
+.google-signin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 10px;
+}
+
 .google-button {
   width: 100%;
   padding: 11px;
