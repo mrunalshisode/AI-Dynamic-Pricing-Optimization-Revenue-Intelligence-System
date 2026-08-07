@@ -44,6 +44,10 @@ Base = declarative_base()
 
 app = FastAPI(title="PricePilot AI API")
 
+# Register AI router
+from routes.ai import router as ai_router
+app.include_router(ai_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
