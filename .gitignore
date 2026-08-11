@@ -232,3 +232,49 @@ node_modules/
 # Build files
 dist/
 build/
+
+# Python
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+backend/.env
+
+# Database
+*.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# AI Models
+backend/saved_models/
+*.pkl
+*.keras
+
+# Dataset cache
+backend/datasets/processed/
+backend/datasets/features/  
+
+# PostgreSQL
+*.sql.backup
+
+# MongoDB
+*.bson
+*.archive
+
+# Logs
+*.log
+
+# AI Training
+backend/datasets/raw/
+
+# Model checkpoints
+*.joblib

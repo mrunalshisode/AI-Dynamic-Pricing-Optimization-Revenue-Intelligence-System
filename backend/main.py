@@ -19,7 +19,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
 SECRET_KEY = "change-this-secret-key"
 ALGORITHM = "HS256"
-ALLOWED_ROLES = {"pricing manager", "business analyst", "user"}
+ALLOWED_ROLES = {"admin", "pricing manager", "business analyst"}
 
 
 def load_env_file():
@@ -38,11 +38,23 @@ def load_env_file():
 load_env_file()
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+from database.postgres import POSTGRES_URL
+if POSTGRES_URL:
+    DATABASE_URL = POSTGRES_URL
+
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
 app = FastAPI(title="PricePilot AI API")
+
+# Register AI router
+from routes.ai import router as ai_router
+app.include_router(ai_router)
+
+# Register Dashboard router
+from routes.dashboard import router as dashboard_router
+app.include_router(dashboard_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,7 +81,7 @@ class User(Base):
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(50), primary_key=True)
     name = Column(String)
     category = Column(String)
     current_price = Column(Float)
@@ -91,21 +103,21 @@ class SalesRecord(Base):
 Base.metadata.create_all(bind=engine)
 
 INITIAL_PRODUCTS = [
-    {"name": "Wireless Headphones", "category": "Audio", "current_price": 1999.0, "cost_price": 1299.0, "stock": 85},
-    {"name": "Smartwatch", "category": "Wearables", "current_price": 3499.0, "cost_price": 2299.0, "stock": 64},
-    {"name": "Bluetooth Speaker", "category": "Audio", "current_price": 1499.0, "cost_price": 899.0, "stock": 92},
-    {"name": "Gaming Mouse", "category": "Peripherals", "current_price": 1199.0, "cost_price": 699.0, "stock": 120},
-    {"name": "Mechanical Keyboard", "category": "Peripherals", "current_price": 2499.0, "cost_price": 1599.0, "stock": 78},
-    {"name": "4K Monitor", "category": "Displays", "current_price": 18999.0, "cost_price": 12999.0, "stock": 47},
-    {"name": "Laptop", "category": "Computers", "current_price": 59999.0, "cost_price": 44999.0, "stock": 36},
-    {"name": "Smartphone", "category": "Mobiles", "current_price": 39999.0, "cost_price": 29999.0, "stock": 55},
-    {"name": "Tablet", "category": "Mobiles", "current_price": 27999.0, "cost_price": 19999.0, "stock": 41},
-    {"name": "Webcam", "category": "Accessories", "current_price": 3499.0, "cost_price": 2299.0, "stock": 70},
-    {"name": "External SSD", "category": "Storage", "current_price": 8999.0, "cost_price": 5999.0, "stock": 63},
-    {"name": "Portable Charger", "category": "Accessories", "current_price": 1999.0, "cost_price": 1199.0, "stock": 88},
-    {"name": "Smart Lamp", "category": "Home", "current_price": 2999.0, "cost_price": 1899.0, "stock": 52},
-    {"name": "Fitness Band", "category": "Wearables", "current_price": 2499.0, "cost_price": 1499.0, "stock": 74},
-    {"name": "Noise-Canceling Earbuds", "category": "Audio", "current_price": 2999.0, "cost_price": 1799.0, "stock": 91},
+    {"id": "elec_headphones", "name": "Wireless Headphones", "category": "Audio", "current_price": 1999.0, "cost_price": 1299.0, "stock": 85},
+    {"id": "elec_smartwatch", "name": "Smartwatch", "category": "Wearables", "current_price": 3499.0, "cost_price": 2299.0, "stock": 64},
+    {"id": "elec_speaker", "name": "Bluetooth Speaker", "category": "Audio", "current_price": 1499.0, "cost_price": 899.0, "stock": 92},
+    {"id": "elec_mouse", "name": "Gaming Mouse", "category": "Peripherals", "current_price": 1199.0, "cost_price": 699.0, "stock": 120},
+    {"id": "elec_keyboard", "name": "Mechanical Keyboard", "category": "Peripherals", "current_price": 2499.0, "cost_price": 1599.0, "stock": 78},
+    {"id": "elec_monitor", "name": "4K Monitor", "category": "Displays", "current_price": 18999.0, "cost_price": 12999.0, "stock": 47},
+    {"id": "elec_laptop", "name": "Laptop", "category": "Computers", "current_price": 59999.0, "cost_price": 44999.0, "stock": 36},
+    {"id": "elec_smartphone", "name": "Smartphone", "category": "Mobiles", "current_price": 39999.0, "cost_price": 29999.0, "stock": 55},
+    {"id": "elec_tablet", "name": "Tablet", "category": "Mobiles", "current_price": 27999.0, "cost_price": 19999.0, "stock": 41},
+    {"id": "elec_webcam", "name": "Webcam", "category": "Accessories", "current_price": 3499.0, "cost_price": 2299.0, "stock": 70},
+    {"id": "elec_ssd", "name": "External SSD", "category": "Storage", "current_price": 8999.0, "cost_price": 5999.0, "stock": 63},
+    {"id": "elec_charger", "name": "Portable Charger", "category": "Accessories", "current_price": 1999.0, "cost_price": 1199.0, "stock": 88},
+    {"id": "elec_lamp", "name": "Smart Lamp", "category": "Home", "current_price": 2999.0, "cost_price": 1899.0, "stock": 52},
+    {"id": "elec_band", "name": "Fitness Band", "category": "Wearables", "current_price": 2499.0, "cost_price": 1499.0, "stock": 74},
+    {"id": "elec_earbuds", "name": "Noise-Canceling Earbuds", "category": "Audio", "current_price": 2999.0, "cost_price": 1799.0, "stock": 91},
 ]
 
 INITIAL_SALES = [
@@ -130,32 +142,68 @@ INITIAL_SALES = [
 def normalize_role(role: str) -> str:
     normalized = (role or "pricing manager").strip().lower()
 
+    if normalized in {"admin", "administrator"}:
+        return "admin"
     if normalized in {"manager", "pricing_manager", "pricing manager"}:
         return "pricing manager"
     if normalized in {"business_analyst", "business analyst", "analyst"}:
         return "business analyst"
     if normalized in {"user", "customer", "end_user", "end user"}:
-        return "user"
+        return "business analyst"
 
     return "pricing manager"
 
 
 def seed_initial_data(db: Session):
-    if db.query(Product).count() == 0:
-        for product_data in INITIAL_PRODUCTS:
-            db.add(Product(**product_data))
-        db.commit()
+    # 1. Clear old non-electronics products
+    allowed_ids = {p["id"] for p in INITIAL_PRODUCTS}
+    db.query(Product).filter(~Product.id.in_(allowed_ids)).delete(synchronize_session=False)
+    db.commit()
 
-    if db.query(SalesRecord).count() == 0:
-        for sale_data in INITIAL_SALES:
-            db.add(SalesRecord(**sale_data))
-        db.commit()
+    # 2. Seed INITIAL_PRODUCTS if not already present
+    for p_data in INITIAL_PRODUCTS:
+        existing = db.query(Product).filter(Product.id == p_data["id"]).first()
+        if not existing:
+            product = Product(
+                id=p_data["id"],
+                name=p_data["name"],
+                category=p_data["category"],
+                current_price=p_data["current_price"],
+                cost_price=p_data["cost_price"],
+                stock=p_data["stock"]
+            )
+            db.add(product)
+    db.commit()
+
+    # 3. Clear old non-electronics sales records
+    allowed_names = {p["name"] for p in INITIAL_PRODUCTS}
+    db.query(SalesRecord).filter(~SalesRecord.product_name.in_(allowed_names)).delete(synchronize_session=False)
+    db.commit()
+
+    # 4. Seed INITIAL_SALES if not already present
+    for s_data in INITIAL_SALES:
+        existing = db.query(SalesRecord).filter(SalesRecord.product_name == s_data["product_name"]).first()
+        if not existing:
+            record = SalesRecord(
+                product_name=s_data["product_name"],
+                units_sold=s_data["units_sold"],
+                revenue=s_data["revenue"],
+                price=s_data["price"]
+            )
+            db.add(record)
+    db.commit()
 
     demo_users = [
         {
-            "name": "Pricing Manager",
+            "name": "Administrator",
             "email": "admin@revenueiq.com",
             "password": "admin123",
+            "role": "admin",
+        },
+        {
+            "name": "Pricing Manager",
+            "email": "manager@revenueiq.com",
+            "password": "manager123",
             "role": "pricing manager",
         },
         {
@@ -168,7 +216,7 @@ def seed_initial_data(db: Session):
             "name": "Standard User",
             "email": "user@revenueiq.com",
             "password": "user123",
-            "role": "user",
+            "role": "business analyst",
         },
     ]
 
@@ -207,7 +255,7 @@ class GoogleAuthRequest(BaseModel):
     credential: str = ""
     email: str = ""
     name: str = ""
-    role: str = "user"
+    role: str = "business analyst"
 
 
 class ProductRequest(BaseModel):
@@ -284,6 +332,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.on_event("startup")
 def initialize_database():
+    try:
+        from database.health import run_database_health_checks
+        run_database_health_checks()
+    except Exception as e:
+        print(f"Error running database health checks: {e}")
+
     db = SessionLocal()
     try:
         seed_initial_data(db)
@@ -381,13 +435,18 @@ def create_product(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    product = Product(**data.dict())
+    import uuid
+    # Product.id is a String(50) primary key — must supply one explicitly
+    product = Product(
+        id=str(uuid.uuid4())[:20],
+        **data.dict()
+    )
 
     db.add(product)
     db.commit()
     db.refresh(product)
 
-    return product
+    return to_dict(product)
 
 
 @app.get("/products")
@@ -415,7 +474,7 @@ def get_sales_sample(db: Session = Depends(get_db)):
 
 @app.put("/products/{product_id}")
 def update_product(
-    product_id: int,
+    product_id: str,
     data: ProductRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -439,7 +498,7 @@ def update_product(
 
 @app.delete("/products/{product_id}")
 def delete_product(
-    product_id: int,
+    product_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

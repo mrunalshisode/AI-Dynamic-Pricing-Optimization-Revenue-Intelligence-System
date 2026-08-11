@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 * {
   box-sizing: border-box;
 }
@@ -350,6 +348,14 @@ body {
   height: 1px;
   background: #e2e8f0;
   margin: 0 10px;
+}
+
+.google-signin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 10px;
 }
 
 .google-button {
@@ -1695,3 +1701,461 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Premium Dark Mode Overrides & Transitions ===== */
+:root {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Transitions for general elements */
+.nav-item, .logout-button, .refresh-button, .btn, button, input, select, textarea, .card, .metric, .chart-card, tr {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Rounded aesthetics for classic panels & form containers */
+.panel, .card, .chart-card, .metric, .product-shell, .pricing-playground, .data-table-container, .pricing-grid, .auth-card {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025) !important;
+}
+
+.metric:hover, .chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Scrollbar tweaks */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode viewport overrides */
+.dark body {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+.dark .sidebar {
+  background: #0b0f19 !important;
+  border-right: 1px solid #1e293b !important;
+}
+
+.dark .sidebar-brand-wrapper {
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.dark .sidebar-footer {
+  border-top: 1px solid #1e293b !important;
+}
+
+.dark .nav-item {
+  color: #94a3b8 !important;
+}
+
+.dark .nav-item:hover, .dark .nav-item.active {
+  background: #1e293b !important;
+  color: #ffffff !important;
+}
+
+.dark .main-content {
+  background: #0f172a !important;
+}
+
+.dark .dashboard-header {
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.dark .dashboard-header h1 {
+  color: #ffffff !important;
+}
+
+.dark .dashboard-header p {
+  color: #94a3b8 !important;
+}
+
+/* Classic Form styling for dark mode */
+.dark .panel, .dark .card, .dark .chart-card, .dark .metric, .dark .product-shell, .dark .pricing-playground, .dark .data-table-container, .dark .pricing-grid, .dark .auth-card {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark .panel-title, .dark .section-title {
+  color: #ffffff !important;
+  border-bottom-color: #334155 !important;
+}
+
+/* Inputs & select styling for dark mode */
+.dark input, .dark select, .dark textarea {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+.dark input:focus, .dark select:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+}
+
+/* Table styling for dark mode */
+.dark th {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-bottom-color: #334155 !important;
+}
+
+.dark td {
+  border-bottom-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+.dark tr:hover td {
+  background-color: #1e293b !important;
+}
+
+/* Form Helper labels */
+.dark label {
+  color: #cbd5e1 !important;
+}
+
+.dark .form-helper {
+  color: #94a3b8 !important;
+}
+
+.dark .empty-state {
+  color: #94a3b8 !important;
+}
+
+/* Toast container dark overrides */
+.dark .toast-notification {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark .toast-message {
+  color: #f1f5f9 !important;
+}
+
+/* Auth views shell alignment */
+.dark .shell {
+  background-color: #0b0f19 !important;
+}
+
+.dark .login-panel {
+  background-color: #0f172a !important;
+}
+
+.dark .login-panel h2 {
+  color: #ffffff !important;
+}
+
+.dark .login-panel p {
+  color: #94a3b8 !important;
+}
+
+.dark .divider span {
+  background-color: #0f172a !important;
+  color: #475569 !important;
+}
+
+.dark .divider::before {
+  background-color: #334155 !important;
+}
+
+.dark .refresh-button {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+.dark .refresh-button:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Scrollbar dark mode thumb */
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Fade in classes */
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ===== Enterprise Design System Additions ===== */
+
+
+/* Ensure Inter font is used everywhere in the app */
+.app-container,
+.app-container * {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ── Dark mode: app-container & main areas ── */
+.dark .app-container {
+  background-color: #09090b !important;
+  color: #a1a1aa !important;
+}
+
+.dark .main-content {
+  background: #09090b !important;
+}
+
+/* ── Dark mode: tool panels ── */
+.dark .tool-panel {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #e4e4e7 !important;
+}
+
+.dark .tool-panel h2,
+.dark .tool-panel h3 {
+  color: #fafafa !important;
+}
+
+.dark .tool-panel .eyebrow {
+  color: #71717a !important;
+}
+
+/* ── Dark mode: workspace grid panels ── */
+.dark .workspace-grid .tool-panel {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
+}
+
+/* ── Dark mode: floating label inputs ── */
+.dark .floating-label-group input,
+.dark .floating-label-group select,
+.dark .floating-label-group textarea {
+  background: #09090b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+.dark .floating-label-group label {
+  color: #71717a !important;
+  background: #18181b !important;
+}
+
+/* ── Dark mode: sidebar logo mark ── */
+.dark .sidebar-brand .logo-mark {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%) !important;
+}
+
+.dark .sidebar-brand .brand-name {
+  color: #fafafa !important;
+}
+
+.dark .user-name {
+  color: #fafafa !important;
+}
+
+.dark .user-role {
+  color: #71717a !important;
+}
+
+.dark .user-avatar {
+  background-color: #27272a !important;
+  color: #8b5cf6 !important;
+}
+
+/* ── Dark mode: sidebar collapse toggle ── */
+.dark .sidebar.collapsed .sidebar-collapse-toggle {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+  color: #a1a1aa !important;
+}
+
+.dark .sidebar-collapse-toggle:hover {
+  background-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* ── Dark mode: logout button ── */
+.dark .logout-button {
+  background-color: #1c1c1e !important;
+  border-color: #3f3f46 !important;
+  color: #f87171 !important;
+}
+
+.dark .logout-button:hover {
+  background-color: #27272a !important;
+}
+
+/* ── Dark mode: KPI enhanced cards ── */
+.dark .dashboard-card {
+  background: #18181b !important;
+  border-color: #27272a !important;
+}
+
+.dark .metric-card-enhanced {
+  background: #18181b !important;
+  border-color: #27272a !important;
+}
+
+/* ── Dark mode: tables inside panels ── */
+.dark .table-wrap table {
+  background: #18181b !important;
+}
+
+.dark .table-search-input {
+  background: #09090b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+/* ── Dark mode: status badges ── */
+.dark .status-badge {
+  background-color: #27272a !important;
+  color: #a1a1aa !important;
+}
+
+.dark .active-status {
+  background-color: #14532d !important;
+  color: #4ade80 !important;
+}
+
+/* ── Dark mode: alerts ── */
+.dark .alert-warning {
+  border-left-color: #d97706 !important;
+  background: #1c1207 !important;
+}
+
+.dark .alert-info {
+  border-left-color: #0284c7 !important;
+  background: #082f49 !important;
+}
+
+.dark .alert-success {
+  border-left-color: #16a34a !important;
+  background: #052e16 !important;
+}
+
+/* ── Dark mode: projection/scenario boxes ── */
+.dark .projection-box {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #e4e4e7 !important;
+}
+
+.dark .projection-box strong {
+  color: #8b5cf6 !important;
+}
+
+/* ── Dark mode: verification/data panels ── */
+.dark .verification-box {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #e4e4e7 !important;
+}
+
+/* ── Dark mode: insight lists ── */
+.dark .insight-list li {
+  color: #a1a1aa !important;
+  border-left-color: #3f3f46 !important;
+}
+
+/* ── Dark mode: pagination ── */
+.dark .pagination-btn {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  color: #a1a1aa !important;
+}
+
+.dark .pagination-btn:hover:not(:disabled) {
+  background: #27272a !important;
+  color: #fafafa !important;
+}
+
+.dark .pagination-info {
+  color: #71717a !important;
+}
+
+/* ── Dark mode: progress bars ── */
+.dark .metric-progress-bar {
+  background: #27272a !important;
+}
+
+/* ── Inter font: global override for main content ── */
+.main-content h1,
+.main-content h2,
+.main-content h3,
+.main-content h4,
+.main-content p,
+.main-content span,
+.main-content td,
+.main-content th,
+.main-content button,
+.main-content input,
+.main-content select,
+.main-content label {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* ── Smooth page-level transitions ── */
+.main-content > section,
+.main-content > div {
+  animation: pageSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Login page dark mode (class-based) ── */
+.dark .shell {
+  background-color: #09090b !important;
+}
+
+.dark .login-panel {
+  background-color: #09090b !important;
+}
+
+.dark .login-card h2 {
+  color: #fafafa !important;
+}
+
+.dark .login-card label {
+  color: #a1a1aa !important;
+}
+
+.dark .login-card button[type="submit"] {
+  background: #7c3aed !important;
+  border-color: #7c3aed !important;
+}
+
+.dark .login-card button[type="submit"]:hover {
+  background: #6d28d9 !important;
+}
+
+.dark .signup {
+  color: #71717a !important;
+}
+
+.dark .link-button {
+  color: #8b5cf6 !important;
+}
+
+/* ── Responsive: mobile sidebar ── */
+@media (max-width: 640px) {
+  .sidebar {
+    display: none;
+  }
+}
+
