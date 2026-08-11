@@ -114,9 +114,9 @@ def main():
         print("                      REVENUE OPTIMIZATION SUMMARY REPORT")
         print("="*80)
         print(f"Total Products Optimized    : {report['total_products_optimized']}")
-        print(f"Total Current Revenue       : ${report['overall_metrics']['total_current_revenue']:,.2f}")
-        print(f"Total Predicted Revenue     : ${report['overall_metrics']['total_predicted_revenue']:,.2f}")
-        print(f"Total Revenue Gain (Net)    : ${report['overall_metrics']['total_revenue_gain']:+,.2f}")
+        print(f"Total Current Revenue       : ₹{report['overall_metrics']['total_current_revenue']:,.2f}")
+        print(f"Total Predicted Revenue     : ₹{report['overall_metrics']['total_predicted_revenue']:,.2f}")
+        print(f"Total Revenue Gain (Net)    : ₹{report['overall_metrics']['total_revenue_gain']:+,.2f}")
         print(f"Total Revenue Growth        : {report['overall_metrics']['total_revenue_growth_percentage']:+.2f}%")
         print("-"*80)
         print("ACTION SEGMENT SUMMARY:")
@@ -126,16 +126,16 @@ def main():
             print(
                 f"  {act:<15} | "
                 f"{details['product_count']:<5} | "
-                f"${details['current_revenue']:<13,.2f} | "
-                f"${details['predicted_revenue']:<13,.2f} | "
+                f"₹{details['current_revenue']:<13,.2f} | "
+                f"₹{details['predicted_revenue']:<13,.2f} | "
                 f"{details['revenue_growth_percentage']:+6.2f}%"
             )
         print("-"*80)
         print("TOP 3 REVENUE GAIN CONTRIBUTORS:")
         for idx, item in enumerate(top_gain_list[:3]):
             print(f"  {idx+1}. StockCode {item['stockcode']} ({item['country']})")
-            print(f"     Price: ${item['current_price']:.2f} -> ${item['recommended_price']:.2f} (change: {item['revenue_growth_percentage']:+.2f}%)")
-            print(f"     Gain : ${item['revenue_gain']:+,.2f} (expected: ${item['expected_revenue']:,.2f})")
+            print(f"     Price: ₹{item['current_price']:.2f} -> ₹{item['recommended_price']:.2f} (change: {item['revenue_growth_percentage']:+.2f}%)")
+            print(f"     Gain : ₹{item['revenue_gain']:+,.2f} (expected: ₹{item['expected_revenue']:,.2f})")
         print("="*80 + "\n")
         
     except Exception as e:

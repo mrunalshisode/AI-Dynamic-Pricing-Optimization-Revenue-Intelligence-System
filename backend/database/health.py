@@ -38,25 +38,25 @@ def run_database_health_checks():
     # 1. SQLite
     sqlite_ok, sqlite_msg = test_sqlite_connection()
     if sqlite_ok:
-        print("✓ SQLite Connected", flush=True)
+        print("[OK] SQLite Connected", flush=True)
     else:
-        print("✗ SQLite Connection Failed", flush=True)
+        print("[FAIL] SQLite Connection Failed", flush=True)
         logger.error(sqlite_msg)
 
     # 2. PostgreSQL
     postgres_ok, postgres_msg = postgres.test_connection()
     if postgres_ok:
-        print("✓ PostgreSQL Connected", flush=True)
+        print("[OK] PostgreSQL Connected", flush=True)
     else:
-        print("✗ PostgreSQL Connection Failed", flush=True)
+        print("[FAIL] PostgreSQL Connection Failed", flush=True)
         logger.error(postgres_msg)
 
     # 3. MongoDB
     mongo_ok, mongo_msg = mongodb.test_connection()
     if mongo_ok:
-        print("✓ MongoDB Connected", flush=True)
+        print("[OK] MongoDB Connected", flush=True)
     else:
-        print("✗ MongoDB Connection Failed", flush=True)
+        print("[FAIL] MongoDB Connection Failed", flush=True)
         logger.error(mongo_msg)
 
     print("------------------------------\n", flush=True)

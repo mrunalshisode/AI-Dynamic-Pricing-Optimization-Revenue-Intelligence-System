@@ -1,26 +1,26 @@
 {
-  "run_date": "2026-08-07T18:06:20.402441+00:00",
+  "run_date": "2026-08-10T16:26:03.923259+00:00",
   "total_products_optimized": 100,
   "overall_metrics": {
     "total_current_revenue": 6443486.05,
-    "total_predicted_revenue": 13754741.21,
-    "total_revenue_gain": 7311255.16,
-    "total_revenue_growth_percentage": 113.47
+    "total_predicted_revenue": 13762309.75,
+    "total_revenue_gain": 7318823.7,
+    "total_revenue_growth_percentage": 113.58
   },
   "action_breakdown": {
     "Increase Price": {
       "product_count": 27,
       "current_revenue": 2085051.06,
-      "predicted_revenue": 1960078.85,
-      "revenue_gain": -124972.21,
-      "revenue_growth_percentage": -5.99
+      "predicted_revenue": 1965965.29,
+      "revenue_gain": -119085.77,
+      "revenue_growth_percentage": -5.71
     },
     "Decrease Price": {
       "product_count": 73,
       "current_revenue": 4358434.99,
-      "predicted_revenue": 11794662.36,
-      "revenue_gain": 7436227.37,
-      "revenue_growth_percentage": 170.62
+      "predicted_revenue": 11796344.46,
+      "revenue_gain": 7437909.47,
+      "revenue_growth_percentage": 170.66
     },
     "Maintain Price": {
       "product_count": 0,
@@ -95,11 +95,11 @@
       "stockcode": "22383",
       "country": "United Kingdom",
       "current_price": 4.96,
-      "recommended_price": 4.44,
+      "recommended_price": 4.09,
       "historical_revenue": 43254.35,
-      "expected_revenue": 128739.22,
-      "revenue_gain": 85484.87,
-      "revenue_growth_percentage": 197.63
+      "expected_revenue": 129456.37,
+      "revenue_gain": 86202.02,
+      "revenue_growth_percentage": 199.29
     },
     {
       "stockcode": "48138",
@@ -167,11 +167,11 @@
       "stockcode": "22383",
       "country": "United Kingdom",
       "current_price": 4.96,
-      "recommended_price": 4.44,
+      "recommended_price": 4.09,
       "historical_revenue": 43254.35,
-      "expected_revenue": 128739.22,
-      "revenue_gain": 85484.87,
-      "revenue_growth_percentage": 197.63
+      "expected_revenue": 129456.37,
+      "revenue_gain": 86202.02,
+      "revenue_growth_percentage": 199.29
     },
     {
       "stockcode": "21523",
@@ -217,11 +217,11 @@
       "stockcode": "21175",
       "country": "United Kingdom",
       "current_price": 4.96,
-      "recommended_price": 4.44,
+      "recommended_price": 4.09,
       "historical_revenue": 43851.48,
-      "expected_revenue": 106221.8,
-      "revenue_gain": 62370.32,
-      "revenue_growth_percentage": 142.23
+      "expected_revenue": 106813.51,
+      "revenue_gain": 62962.03,
+      "revenue_growth_percentage": 143.58
     },
     {
       "stockcode": "23284",

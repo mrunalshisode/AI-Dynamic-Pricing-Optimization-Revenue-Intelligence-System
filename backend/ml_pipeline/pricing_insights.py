@@ -91,9 +91,9 @@ class AIInsightsGenerator:
             # If current price is lower than LightGBM baseline, we have pricing headroom / margin advantage
             if curr_p < pred_p * 0.95:
                 tags.append("Competitor Advantage")
-                reasoning_sentences.append(f"current price (${curr_p:.2f}) is below optimal baseline price (${pred_p:.2f}), offering pricing headroom")
+                reasoning_sentences.append(f"current price (₹{curr_p:.2f}) is below optimal baseline price (₹{pred_p:.2f}), offering pricing headroom")
             elif curr_p > pred_p * 1.05:
-                reasoning_sentences.append(f"current price (${curr_p:.2f}) is higher than optimal baseline (${pred_p:.2f}), suggesting we are overpriced")
+                reasoning_sentences.append(f"current price (₹{curr_p:.2f}) is higher than optimal baseline (₹{pred_p:.2f}), suggesting we are overpriced")
 
             # 5. Revenue Opportunity Insight
             if imp_pct > 5.0:
@@ -103,16 +103,16 @@ class AIInsightsGenerator:
             joined_context = ", ".join(reasoning_sentences)
             
             if action == "Increase Price":
-                action_text = f"We recommend increasing the price by ${diff:.2f} (+{diff_pct:.1f}%) to ${rec_p:.2f}."
+                action_text = f"We recommend increasing the price by ₹{diff:.2f} (+{diff_pct:.1f}%) to ₹{rec_p:.2f}."
                 if imp_pct > 0.0:
                     outcome_text = f"This increase is designed to expand margins and slow down inventory draw, while capturing an expected revenue improvement of {imp_pct:.2f}%."
                 else:
                     outcome_text = f"This increase is designed to defend product value and extend run-out time, with a projected change in revenue of {imp_pct:.2f}%."
             elif action == "Decrease Price":
-                action_text = f"We recommend decreasing the price by ${abs(diff):.2f} ({diff_pct:.1f}%) to ${rec_p:.2f}."
+                action_text = f"We recommend decreasing the price by ₹{abs(diff):.2f} ({diff_pct:.1f}%) to ₹{rec_p:.2f}."
                 outcome_text = f"This markdown aims to clear inventory, stimulate volume sales, and capture a projected revenue improvement of {imp_pct:.2f}%."
             else:
-                action_text = f"We recommend maintaining the price at ${rec_p:.2f}."
+                action_text = f"We recommend maintaining the price at ₹{rec_p:.2f}."
                 outcome_text = "This matches baseline pricing and maintains competitive market alignment."
 
             reason_paragraph = f"For product {stockcode} in {country}, {joined_context}. {action_text} {outcome_text}"
@@ -195,7 +195,7 @@ def main():
         print("SAMPLE DETAILED INSIGHTS (Top 3 Products):")
         for item in insights[:3]:
             print(f"\n  Product StockCode : {item['stockcode']}")
-            print(f"    Current Price   : ${item['current_price']:.2f} | Recommended: ${item['recommended_price']:.2f}")
+            print(f"    Current Price   : ₹{item['current_price']:.2f} | Recommended: ₹{item['recommended_price']:.2f}")
             print(f"    Action          : {item['recommendation'].upper()}")
             print(f"    Insight Tags    : {item['insights']}")
             # Wrap textual reason for clean presentation

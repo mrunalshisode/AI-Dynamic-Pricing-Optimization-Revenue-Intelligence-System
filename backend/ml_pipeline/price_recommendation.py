@@ -170,13 +170,13 @@ class PriceRecommendationEngine:
             # Formulate recommendation actions
             if price_diff_pct > 2.0:
                 action = "Increase Price"
-                reason = f"Supported by LightGBM model price (${pred_price:.2f}) and {inv_status}."
+                reason = f"Supported by LightGBM model price (₹{pred_price:.2f}) and {inv_status}."
             elif price_diff_pct < -2.0:
                 action = "Decrease Price"
-                reason = f"Recommended by LightGBM model price (${pred_price:.2f}) and {inv_status}."
+                reason = f"Recommended by LightGBM model price (₹{pred_price:.2f}) and {inv_status}."
             else:
                 action = "Maintain Price"
-                reason = f"Current price is well-aligned with model predicted price (${pred_price:.2f}) and {inv_status}."
+                reason = f"Current price is well-aligned with model predicted price (₹{pred_price:.2f}) and {inv_status}."
                 
             # Economic demand elasticity projection
             # Elasticity is negative (e.g. -1.5): Price increase -> demand drops; price drop -> demand increases
@@ -291,9 +291,9 @@ def main():
         for r in recommendations[:5]:
             print(
                 f"  {r['stockcode']:<10} | "
-                f"${r['current_price']:<7.2f} | "
-                f"${r['recommended_price']:<8.2f} | "
-                f"${r['price_difference']:+6.2f} | "
+                f"₹{r['current_price']:<7.2f} | "
+                f"₹{r['recommended_price']:<8.2f} | "
+                f"₹{r['price_difference']:+6.2f} | "
                 f"{r['recommendation']:<15} | "
                 f"{r['revenue_improvement_percentage']:+10.2f}%"
             )

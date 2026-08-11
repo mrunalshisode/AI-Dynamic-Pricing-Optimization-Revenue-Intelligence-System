@@ -129,10 +129,12 @@ def forecast_demand(horizon: str = Query("90_days", regex="^(7_days|30_days|90_d
 
 @router.get("/recommend-price")
 def recommend_price(
-    current_price: float,
-    current_inventory: float,
-    historical_sales: float,
-    historical_revenue: float,
+    stockcode: str,
+    current_price: float = None,
+    current_inventory: float = None,
+    historical_sales: float = None,
+    historical_revenue: float = None,
+    competitor_price: float = None,
     quantity: float = 10.0,
     revenue: float = 50.0,
     year: int = 2018,
@@ -145,12 +147,11 @@ def recommend_price(
     quantity_lag_7: float = 8.0,
     quantity_rolling_mean_7: float = 9.5,
     quantity_rolling_mean_14: float = 10.2,
-    stockcode: str = "22423",
     country: str = "United Kingdom"
 ):
     """
     Combines pricing model outputs, Prophet trends, stock level status, and price elasticity
-    to return a complete pricing recommendation document.
+    to return a complete pricing recommendation document based on real database records.
     """
     global recommendation_service
     if recommendation_service is None:
@@ -162,30 +163,70 @@ def recommend_price(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Recommendation engine failed to initialize: {e}")
             
-    features = {
-        "quantity": quantity,
-        "revenue": revenue,
-        "year": year,
-        "month": month,
-        "week": week,
-        "day": day,
-        "day_of_week": day_of_week,
-        "quarter": quarter,
-        "quantity_lag_1": quantity_lag_1,
-        "quantity_lag_7": quantity_lag_7,
-        "quantity_rolling_mean_7": quantity_rolling_mean_7,
-        "quantity_rolling_mean_14": quantity_rolling_mean_14,
-        "stockcode": stockcode,
-        "country": country
-    }
-    
+    # Fetch real product and sales from PostgreSQL
+    from main import SessionLocal, Product, SalesRecord
+    db_conn = SessionLocal()
+    cost_price = None
+    try:
+        product = db_conn.query(Product).filter(Product.id == stockcode).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product with stockcode '{stockcode}' not found in database.")
+        
+        # Override with database values
+        current_price = product.current_price
+        current_inventory = product.stock
+        cost_price = product.cost_price
+        
+        # Sum sales records matching the product description/name
+        sales_records = db_conn.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
+        if sales_records:
+            historical_sales = sum(s.units_sold for s in sales_records)
+            historical_revenue = sum(s.revenue for s in sales_records)
+        else:
+            historical_sales = 0.0
+            historical_revenue = 0.0
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Database lookup error for product {stockcode}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database lookup failed: {e}")
+    finally:
+        db_conn.close()
+
+    # Get features from preloaded in-memory features dataframe
+    features = {}
+    if pricing_service is not None:
+        features = pricing_service.get_features_for_product(stockcode)
+
+    if not features:
+        features = {
+            "quantity": quantity,
+            "revenue": revenue,
+            "year": year,
+            "month": month,
+            "week": week,
+            "day": day,
+            "day_of_week": day_of_week,
+            "quarter": quarter,
+            "quantity_lag_1": quantity_lag_1,
+            "quantity_lag_7": quantity_lag_7,
+            "quantity_rolling_mean_7": quantity_rolling_mean_7,
+            "quantity_rolling_mean_14": quantity_rolling_mean_14,
+            "stockcode": stockcode,
+            "country": country
+        }
+    else:
+        features["stockcode"] = stockcode
+
     try:
         rec = recommendation_service.get_recommendation(
             product_features=features,
             current_price=current_price,
             current_inventory=current_inventory,
             historical_sales=historical_sales,
-            historical_revenue=historical_revenue
+            historical_revenue=historical_revenue,
+            cost_price=cost_price,
+            competitor_price=competitor_price
         )
         return {
             "status": "success",

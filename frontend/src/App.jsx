@@ -1,22 +1,32 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
+import AIDashboard from "./pages/AIDashboard";
+import ForecastVisualization from "./pages/ForecastVisualization";
+import AIRecommendation from "./pages/AIRecommendation";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import AIMonitoring from "./pages/AIMonitoring";
+import PredictionHistory from "./pages/PredictionHistory";
+import PricingManagerDashboard from "./pages/PricingManagerDashboard";
+import BusinessAnalystDashboard from "./pages/BusinessAnalystDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const API = "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const roleOptions = [
   { value: "pricing manager", label: "Pricing Manager" },
   { value: "business analyst", label: "Business Analyst" },
-  { value: "user", label: "User" },
+  { value: "admin", label: "Admin" },
 ];
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-US", {
+function formatINR(value) {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
+    currency: "INR",
+    maximumFractionDigits: 2,
   }).format(value || 0);
 }
+const formatCurrency = formatINR;
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -25,6 +35,13 @@ export default function App() {
   const [userRole, setUserRole] = useState(
     localStorage.getItem("userRole") || "pricing manager",
   );
+  const [error, setError] = useState("");
+
+  const [productsError, setProductsError] = useState(false);
+  const [dashboardError, setDashboardError] = useState(false);
+  const [overviewError, setOverviewError] = useState(false);
+  const [salesError, setSalesError] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   const [auth, setAuth] = useState({
     name: "",
@@ -35,7 +52,7 @@ export default function App() {
   });
 
   const [pricingForm, setPricingForm] = useState({
-    product: 0,
+    product: "",
     basePrice: 0,
     competitorPrice: 132,
     demandLevel: 78,
@@ -44,8 +61,31 @@ export default function App() {
 
   const [products, setProducts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [overviewMetrics, setOverviewMetrics] = useState(null);
   const [salesInfo, setSalesInfo] = useState({ count: 0, sample: [] });
   const [googleReady, setGoogleReady] = useState(false);
+
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "light" ? "dark" : "light";
+    setTheme(nextTheme);
+    localStorage.setItem("theme", nextTheme);
+    if (nextTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
@@ -209,7 +249,34 @@ export default function App() {
         </svg>
       );
     }
-    if (l.includes("optimizer") || l.includes("forecast") || l.includes("insights") || l.includes("outlook") || l.includes("planner")) {
+    if (l.includes("analytics")) {
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+          <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+        </svg>
+      );
+    }
+    if (l.includes("monitoring")) {
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      );
+    }
+    if (l.includes("logs")) {
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+      );
+    }
+    if (l.includes("optimizer") || l.includes("forecast") || l.includes("insights") || l.includes("outlook") || l.includes("planner") || l.includes("projections") || l.includes("recommend")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="20" x2="18" y2="10"/>
@@ -376,7 +443,7 @@ export default function App() {
                 paginatedSales.map((row, index) => (
                   <tr key={index}>
                     <td>{row.product_name}</td>
-                    <td>${row.price}</td>
+                    <td>{formatCurrency(row.price)}</td>
                     <td>{row.quantity_sold || row.units_sold}</td>
                   </tr>
                 ))
@@ -422,7 +489,8 @@ export default function App() {
 
     if (normalized.includes("manager")) return "pricing manager";
     if (normalized.includes("analyst")) return "business analyst";
-    if (normalized.includes("user")) return "user";
+    if (normalized.includes("admin")) return "admin";
+    if (normalized.includes("user")) return "business analyst";
 
     return "pricing manager";
   }
@@ -431,8 +499,8 @@ export default function App() {
     switch (getNormalizedRole(role)) {
       case "business analyst":
         return "Business Analyst";
-      case "user":
-        return "User";
+      case "admin":
+        return "Admin";
       default:
         return "Pricing Manager";
     }
@@ -447,11 +515,11 @@ export default function App() {
             "Review sales performance, demand signals, and forecast scenarios.",
           highlight: "Analyst focus",
         };
-      case "user":
+      case "admin":
         return {
-          title: "User View",
-          subtitle: "Stay informed with the latest alerts and next actions.",
-          highlight: "User focus",
+          title: "Admin Control Center",
+          subtitle: "Manage database connection telemetry, system audit events, and ML models versioning.",
+          highlight: "Admin focus",
         };
       default:
         return {
@@ -497,6 +565,8 @@ export default function App() {
       setUserName(auth.email.split("@")[0]);
       setUserRole(normalizedRole);
       setToken(response.data.access_token);
+      setActiveView("dashboard");
+      setActiveAnchor("");
       showToast("Logged in successfully!", "success");
     } catch (error) {
       console.error("Login failed", error);
@@ -562,148 +632,190 @@ export default function App() {
   }
 
   async function loadData() {
+    setIsLoadingData(true);
+    setError("");
+    setProductsError(false);
+    setDashboardError(false);
+    setOverviewError(false);
+    setSalesError(false);
+
     try {
-      const productsResponse = await axios.get(`${API}/products`, { headers });
-      const dashboardResponse = await axios.get(`${API}/dashboard`, {
-        headers,
-      });
-      const salesCountResponse = await axios.get(`${API}/sales/count`);
-      const salesSampleResponse = await axios.get(`${API}/sales/sample`);
+      // 1. Fetch Products
+      try {
+        const productsResponse = await axios.get(`${API}/products`, { headers });
+        const fetchedProducts = productsResponse.data;
+        setProducts(fetchedProducts);
+        if (fetchedProducts.length > 0) {
+          const firstProduct = fetchedProducts[0];
+          setPricingForm((prev) => ({
+            ...prev,
+            product: firstProduct.id,
+            basePrice: firstProduct.current_price,
+          }));
+        }
+        generateAlerts(fetchedProducts);
+      } catch (err) {
+        console.error("Error loading products:", err);
+        setProductsError(true);
+      }
 
-      const fetchedProducts = productsResponse.data;
-      setProducts(fetchedProducts);
-      setDashboard(dashboardResponse.data);
-      setSalesInfo({
-        count: salesCountResponse.data.sales_count,
-        sample: salesSampleResponse.data,
-      });
+      // 2. Fetch Dashboard stats
+      try {
+        const dashboardResponse = await axios.get(`${API}/dashboard`, { headers });
+        setDashboard(dashboardResponse.data);
+      } catch (err) {
+        console.error("Error loading dashboard:", err);
+        setDashboardError(true);
+      }
 
-      if (fetchedProducts.length > 0) {
-        const firstProduct = fetchedProducts[0];
-        setPricingForm((prev) => ({
-          ...prev,
-          product: firstProduct.id,
-          basePrice: firstProduct.current_price,
-        }));
+      // 3. Fetch Overview metrics
+      try {
+        const overviewResponse = await axios.get(`${API}/api/dashboard/overview`, { headers });
+        setOverviewMetrics(overviewResponse.data.overview);
+      } catch (err) {
+        console.error("Error loading overview metrics:", err);
+        setOverviewError(true);
+      }
+
+      // 4. Fetch Sales count & sample
+      try {
+        const salesCountResponse = await axios.get(`${API}/sales/count`);
+        const salesCount = salesCountResponse.data.sales_count;
+        const salesSampleResponse = await axios.get(`${API}/sales`);
+        setSalesInfo({
+          count: salesCount,
+          sample: salesSampleResponse.data,
+        });
+      } catch (err) {
+        console.error("Error loading sales data:", err);
+        setSalesError(true);
       }
 
       const savedHistory = JSON.parse(
-        localStorage.getItem("pricingHistory") || "[]",
+        localStorage.getItem("pricingHistory") || "[]"
       );
       setHistory(savedHistory);
-
-      generateAlerts(fetchedProducts);
-    } catch (error) {
-      console.error("Error loading data:", error);
+    } finally {
+      setIsLoadingData(false);
     }
   }
 
-  function generateAlerts() {
-    const sampleAlerts = [
-      {
-        id: 1,
+  function generateAlerts(fetchedProducts) {
+    const activeProducts = fetchedProducts || products;
+    const dynamicAlerts = [];
+    let alertId = 1;
+
+    // 1. Stock warning alerts
+    const lowStockProducts = activeProducts.filter(p => p.stock < 15);
+    lowStockProducts.slice(0, 2).forEach(p => {
+      dynamicAlerts.push({
+        id: alertId++,
         type: "warning",
-        message: "Competitor lowered price on Smart Watch Pro by 5%",
-      },
-      {
-        id: 2,
-        type: "info",
-        message:
-          "Market demand for Wireless Headphones increased significantly",
-      },
-      {
-        id: 3,
+        message: `Inventory critical: ${p.name} stock level is low (${p.stock} units remaining).`
+      });
+    });
+
+    // 2. High margin opportunities or recommendation signals
+    const highMarginProducts = activeProducts.filter(p => p.current_price > p.cost_price * 1.5);
+    highMarginProducts.slice(0, 1).forEach(p => {
+      dynamicAlerts.push({
+        id: alertId++,
         type: "success",
-        message: "Price adjustment on Action Camera improved margins by 8%",
-      },
-    ];
-    setAlerts(sampleAlerts);
-  }
+        message: `Margin healthy: ${p.name} is performing above baseline target thresholds.`
+      });
+    });
 
-  function calculateRecommendation() {
-    const demand = pricingForm.demandLevel / 100;
-    const inventory = pricingForm.inventoryLevel / 100;
-    const basePrice = pricingForm.basePrice || 0;
-
-    let suggestedPrice = basePrice;
-    let revenueLift = 0;
-    let confidence = 65;
-    let reason = "Recommendations update based on demand and inventory.";
-
-    if (demand > 0.7 && inventory < 0.5) {
-      revenueLift = 18.7;
-      suggestedPrice = basePrice * 1.15;
-      confidence = 92;
-      reason =
-        "Demand is strong, so the model recommends a controlled increase.";
-    } else if (demand > 0.5) {
-      revenueLift = 8.3;
-      suggestedPrice = basePrice * 1.08;
-      confidence = 78;
-      reason = "Moderate demand suggests a modest price increase.";
-    } else if (demand < 0.4) {
-      revenueLift = -7.2;
-      suggestedPrice = basePrice * 0.92;
-      confidence = 68;
-      reason = "Lower demand suggests a price reduction to boost volume.";
-    } else if (inventory > 0.7) {
-      revenueLift = -5;
-      suggestedPrice = basePrice * 0.95;
-      confidence = 71;
-      reason = "High inventory suggests a price reduction to accelerate sales.";
+    // 3. General category stats info
+    if (activeProducts.length > 0) {
+      dynamicAlerts.push({
+        id: alertId++,
+        type: "info",
+        message: `Active monitoring: ${activeProducts.length} SKU categories synced with postgres and mongodb.`
+      });
     } else {
-      revenueLift = -2.5;
-      suggestedPrice = basePrice * 0.97;
-      confidence = 72;
-      reason =
-        "Stable demand with moderate inventory suggests a slight price adjustment.";
+      dynamicAlerts.push({
+        id: alertId++,
+        type: "warning",
+        message: "Database synchronizing: no catalog products loaded."
+      });
     }
 
-    const projectedRevenue = basePrice
-      ? (suggestedPrice * pricingForm.demandLevel * 100) / basePrice
-      : 0;
-
-    return {
-      suggestedPrice: Math.round(suggestedPrice),
-      revenueLift: revenueLift.toFixed(1),
-      confidence: confidence,
-      projectedRevenue: Math.round(projectedRevenue),
-      reason,
-    };
-  }
-
-  function updateRecommendation() {
-    const newRecommendation = calculateRecommendation();
-    setRecommendation(newRecommendation);
-
-    const selectedProduct = products.find(
-      (item) => item.id === pricingForm.product,
-    );
-
-    const newEntry = {
-      id: Date.now(),
-      product: selectedProduct
-        ? selectedProduct.name
-        : `Product ${pricingForm.product}`,
-      basePrice: pricingForm.basePrice,
-      suggestedPrice: newRecommendation.suggestedPrice,
-      timestamp: new Date().toLocaleString(),
-      demandLevel: pricingForm.demandLevel,
-      inventoryLevel: pricingForm.inventoryLevel,
-    };
-
-    const updatedHistory = [newEntry, ...history.slice(0, 9)];
-    setHistory(updatedHistory);
-    localStorage.setItem("pricingHistory", JSON.stringify(updatedHistory));
+    setAlerts(dynamicAlerts);
   }
 
   async function handlePricingSubmit(e) {
     e.preventDefault();
     setIsSubmittingPricing(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    updateRecommendation();
-    setIsSubmittingPricing(false);
-    showToast("Price recommendation recalculated.", "success");
+    
+    const product = products.find((p) => String(p.id) === String(pricingForm.product));
+    if (!product) {
+      setIsSubmittingPricing(false);
+      showToast("Selected product not found", "error");
+      return;
+    }
+
+    // Get historical sales
+    const productSales = salesInfo.sample.filter(
+      (s) => s.product_name === product.name || String(s.product_id) === String(product.id)
+    );
+    const salesCount = productSales.reduce((acc, s) => acc + (s.quantity_sold || s.units_sold || 0), 0);
+    const revenueSum = productSales.reduce((acc, s) => acc + (s.revenue || 0), 0);
+    
+    const historicalSales = salesCount;
+    const historicalRevenue = revenueSum;
+
+    try {
+      const response = await axios.get(`${API}/api/ai/recommend-price`, {
+        params: {
+          current_price: pricingForm.basePrice || product.current_price,
+          current_inventory: pricingForm.inventoryLevel || product.stock || 50,
+          historical_sales: historicalSales,
+          historical_revenue: historicalRevenue,
+          stockcode: String(product.id),
+          quantity: 10,
+          revenue: historicalRevenue,
+          competitor_price: pricingForm.competitorPrice
+        },
+      });
+
+      if (response.data && response.data.status === "success") {
+        const rec = response.data.recommendation;
+        const newRecommendation = {
+          suggestedPrice: rec.recommended_price,
+          revenueLift: ((rec.metrics?.revenue_growth_percentage || 0)).toFixed(1),
+          confidence: rec.confidence || 85,
+          projectedRevenue: Math.round(rec.expected_revenue),
+          expectedDemand: rec.expected_demand,
+          reason: rec.model_signals || "model pricing signals",
+          originalReason: rec.reason,
+        };
+        
+        setRecommendation(newRecommendation);
+
+        // Add to history list
+        const newEntry = {
+          id: Date.now(),
+          product: product.name,
+          basePrice: pricingForm.basePrice || product.current_price,
+          suggestedPrice: newRecommendation.suggestedPrice,
+          timestamp: new Date().toLocaleString(),
+          demandLevel: pricingForm.demandLevel,
+          inventoryLevel: pricingForm.inventoryLevel,
+        };
+
+        const updatedHistory = [newEntry, ...history.slice(0, 9)];
+        setHistory(updatedHistory);
+        localStorage.setItem("pricingHistory", JSON.stringify(updatedHistory));
+        showToast("Price recommendation recalculated.", "success");
+      } else {
+        showToast("Unable to load pricing data. (Invalid response format)", "error");
+      }
+    } catch (err) {
+      console.error("Pricing submission failed:", err);
+      showToast("Unable to load pricing data. Please check backend connection.", "error");
+    } finally {
+      setIsSubmittingPricing(false);
+    }
   }
 
   function clearHistory() {
@@ -830,6 +942,8 @@ export default function App() {
     setToken("");
     setUserName("");
     setUserRole("pricing manager");
+    setActiveView("dashboard");
+    setActiveAnchor("");
   }
 
   useEffect(() => {
@@ -903,25 +1017,36 @@ export default function App() {
 
   const roleCopy = getRoleCopy(userRole);
 
-  const roleActions =
-    getNormalizedRole(userRole) === "business analyst"
-      ? [
-          { label: "Demand Insights", href: "#analysisPanel" },
-          { label: "Forecast View", href: "#forecastPanel" },
-          { label: "Data Quality", href: "#salesPanel" },
-          { label: "Products", type: "view", view: "products" },
-        ]
-      : getNormalizedRole(userRole) === "user"
-        ? [
-            { label: "Alerts", href: "#alertsPanel" },
-            { label: "My Actions", href: "#historyList" },
-            { label: "Products", href: "#productTable" },
-          ]
-        : [
-            { label: "Optimizer", href: "#pricingForm" },
-            { label: "Products", type: "view", view: "products" },
-            { label: "History", href: "#historyList" },
-          ];
+  const getRoleActions = (role) => {
+    const r = getNormalizedRole(role);
+    if (r === "admin") {
+      return [
+        { label: "Admin Dashboard", type: "view", view: "admin_dashboard" },
+        { label: "User & Role Management", type: "view", view: "admin_dashboard" },
+        { label: "Products Catalog", type: "view", view: "products" },
+        { label: "System/Database Health", type: "view", view: "admin_dashboard" },
+        { label: "ML Model Status", type: "view", view: "admin_dashboard" },
+        { label: "System Configuration", type: "view", view: "admin_dashboard" },
+      ];
+    }
+    if (r === "pricing manager") {
+      return [
+        { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
+        { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Products Catalog", type: "view", view: "products" },
+      ];
+    }
+    if (r === "business analyst") {
+      return [
+        { label: "Pricing Insights", type: "view", view: "bi_analytics" },
+        { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Products Catalog", type: "view", view: "products" },
+      ];
+    }
+    return [];
+  };
+
+  const roleActions = getRoleActions(userRole);
 
   const roleMetrics =
     getNormalizedRole(userRole) === "business analyst"
@@ -942,42 +1067,24 @@ export default function App() {
             description: "Supports price sensitivity and forecast planning.",
           },
         ]
-      : getNormalizedRole(userRole) === "user"
-        ? [
-            {
-              label: "Open Alerts",
-              value: alerts.length,
-              description: "Stay aware of the latest changes.",
-            },
-            {
-              label: "Saved Updates",
-              value: history.length,
-              description: "Your recent price actions are kept here.",
-            },
-            {
-              label: "Products Tracked",
-              value: products.length,
-              description: "Monitor the key catalog items that matter to you.",
-            },
-          ]
-        : [
-            {
-              label: "Recommended Revenue Lift",
-              value: `${recommendation?.revenueLift || "18.7"}%`,
-              description:
-                "Based on demand, inventory, and competitor pressure.",
-            },
-            {
-              label: "AI Suggested Price",
-              value: `$${recommendation?.suggestedPrice || "129"}`,
-              description: "Real-time pricing recommendation.",
-            },
-            {
-              label: "Forecast Confidence",
-              value: `${recommendation?.confidence || "92"}%`,
-              description: "Confidence reflects current market conditions.",
-            },
-          ];
+      : [
+          {
+            label: "Recommended Revenue Lift",
+            value: `${recommendation?.revenueLift || "18.7"}%`,
+            description:
+              "Based on demand, inventory, and competitor pressure.",
+          },
+          {
+            label: "AI Suggested Price",
+            value: formatCurrency(recommendation?.suggestedPrice || 129),
+            description: "Real-time pricing recommendation.",
+          },
+          {
+            label: "Forecast Confidence",
+            value: `${recommendation?.confidence || "92"}%`,
+            description: "Confidence reflects current market conditions.",
+          },
+        ];
 
   const showProductsPage = activeView === "products";
 
@@ -1016,12 +1123,12 @@ export default function App() {
               <small>
                 {mode === "login"
                   ? "Projected this cycle"
-                  : "Manager, analyst, and user"}
+                  : "Manager, Analyst, and Admin"}
               </small>
             </article>
             <article className="metric">
               <span>{mode === "login" ? "Optimal Price" : "Role Views"}</span>
-              <strong>{mode === "login" ? "$129" : "Tailored"}</strong>
+              <strong>{mode === "login" ? "₹10,750" : "Tailored"}</strong>
               <small>
                 {mode === "login"
                   ? "Recommended SKU avg."
@@ -1131,26 +1238,8 @@ export default function App() {
                   </option>
                 ))}
               </select>
-              <label htmlFor="auth-role">Sign-in role</label>
+              <label htmlFor="auth-role">{mode === "login" ? "Sign-in role" : "Role"}</label>
             </div>
-
-            {mode === "register" && (
-              <div className="floating-label-group">
-                <select
-                  id="auth-role-reg"
-                  value={auth.role}
-                  onChange={(e) => setAuth({ ...auth, role: e.target.value })}
-                  required
-                >
-                  {roleOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <label htmlFor="auth-role-reg">Role</label>
-              </div>
-            )}
 
             {mode === "register" && (
               <div className="floating-label-group">
@@ -1220,6 +1309,21 @@ export default function App() {
     );
   }
 
+  function isViewAllowed(view, role) {
+    const r = getNormalizedRole(role);
+    if (view === "dashboard") return true;
+    if (r === "admin") {
+      return ["admin_dashboard", "products", "ai_monitoring", "prediction_history"].includes(view);
+    }
+    if (r === "pricing manager") {
+      return ["pricing_manager_dashboard", "ai_recommendation", "products"].includes(view);
+    }
+    if (r === "business analyst") {
+      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products"].includes(view);
+    }
+    return false;
+  }
+
   return (
     <div className={`app-container ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
@@ -1246,17 +1350,19 @@ export default function App() {
           {/* Main views group */}
           <div className="nav-group">
             <span className="nav-group-title">Console</span>
-            <button
-              type="button"
-              className={`nav-item ${activeView === "dashboard" && activeAnchor === "" ? "active" : ""}`}
-              onClick={() => {
-                setActiveView("dashboard");
-                setActiveAnchor("");
-              }}
-            >
-              {renderNavIcon("dashboard")}
-              <span>Dashboard</span>
-            </button>
+            {getNormalizedRole(userRole) !== "admin" && (
+              <button
+                type="button"
+                className={`nav-item ${activeView === "dashboard" && activeAnchor === "" ? "active" : ""}`}
+                onClick={() => {
+                  setActiveView("dashboard");
+                  setActiveAnchor("");
+                }}
+              >
+                {renderNavIcon("dashboard")}
+                <span>Dashboard</span>
+              </button>
+            )}
             {roleActions.filter(action => action.type === "view").map((action) => (
               <button
                 key={action.label}
@@ -1325,9 +1431,30 @@ export default function App() {
             <h1>{roleCopy.title}</h1>
             <p id="welcomeUser">Welcome back, {userName}. {roleCopy.subtitle}</p>
           </div>
-          <div className="header-actions">
+          <div className="header-actions flex items-center gap-3">
             <button
-              className="refresh-button"
+              onClick={toggleTheme}
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 font-medium text-xs flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+              aria-label="Toggle theme"
+            >
+              {theme === "light" ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                  <span>Dark Mode</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M14 12a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span>Light Mode</span>
+                </>
+              )}
+            </button>
+            <button
+              className="refresh-button cursor-pointer"
               onClick={() => window.location.reload()}
             >
               Refresh Workspace
@@ -1335,11 +1462,111 @@ export default function App() {
           </div>
         </header>
 
-        <section className="dashboard-grid" aria-label="Dashboard summary">
-          {roleMetrics.map(renderMetricCard)}
-        </section>
-
-        {showProductsPage ? (
+        {error ? (
+          <div className="text-left w-full max-w-xl mx-auto px-4 py-16 text-center space-y-4 animate-fade-in">
+            <div className="inline-flex p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl text-rose-600 dark:text-rose-400">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Unable to load dashboard data. Please try again.</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">{error}</p>
+            <button
+              onClick={() => { setError(""); loadData(); }}
+              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : !isViewAllowed(activeView, userRole) ? (
+          <div className="text-left w-full max-w-xl mx-auto px-4 py-16 text-center space-y-4 animate-fade-in">
+            <div className="inline-flex p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl text-rose-600 dark:text-rose-400">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Workspace Access Restricted</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Your profile is not authorized to access this panel. Dashboards are strictly isolated by enterprise roles.
+            </p>
+            <button
+              onClick={() => setActiveView("dashboard")}
+              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition shadow-sm"
+            >
+              Return to my Dashboard
+            </button>
+          </div>
+        ) : isLoadingData ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500 w-full">
+            <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-4 font-medium">Synchronizing system telemetry...</p>
+          </div>
+        ) : activeView === "pricing_manager_dashboard" || (activeView === "dashboard" && getNormalizedRole(userRole) === "pricing manager") ? (
+          <PricingManagerDashboard
+            products={products}
+            pricingForm={pricingForm}
+            setPricingForm={setPricingForm}
+            recommendation={recommendation}
+            history={history}
+            alerts={alerts}
+            formatCurrency={formatCurrency}
+            handlePricingSubmit={handlePricingSubmit}
+            pricingSearch={pricingSearch}
+            setPricingSearch={setPricingSearch}
+            pricingSortField={pricingSortField}
+            setPricingSortField={setPricingSortField}
+            pricingSortOrder={pricingSortOrder}
+            setPricingSortOrder={setPricingSortOrder}
+            pricingPage={pricingPage}
+            setPricingPage={setPricingPage}
+            totalPricingPages={totalPricingPages}
+            paginatedPricing={paginatedPricing}
+            salesSearch={salesSearch}
+            setSalesSearch={setSalesSearch}
+            salesPage={salesPage}
+            setSalesPage={setSalesPage}
+            totalSalesPages={totalSalesPages}
+            paginatedSales={paginatedSales}
+            salesSortField={salesSortField}
+            setSalesSortField={setSalesSortField}
+            salesSortOrder={salesSortOrder}
+            setSalesSortOrder={setSalesSortOrder}
+            isSubmittingPricing={isSubmittingPricing}
+            clearHistory={clearHistory}
+            showToast={showToast}
+            loadData={loadData}
+          />
+        ) : activeView === "business_analyst_dashboard" || (activeView === "dashboard" && getNormalizedRole(userRole) === "business analyst") ? (
+          <BusinessAnalystDashboard
+            products={products}
+            formatCurrency={formatCurrency}
+            alerts={alerts}
+            salesSearch={salesSearch}
+            setSalesSearch={setSalesSearch}
+            salesPage={salesPage}
+            setSalesPage={setSalesPage}
+            totalSalesPages={totalSalesPages}
+            paginatedSales={paginatedSales}
+            salesSortField={salesSortField}
+            setSalesSortField={setSalesSortField}
+            salesSortOrder={salesSortOrder}
+            setSalesSortOrder={setSalesSortOrder}
+          />
+        ) : activeView === "admin_dashboard" || (activeView === "dashboard" && getNormalizedRole(userRole) === "admin") ? (
+          <AdminDashboard />
+        ) : activeView === "ai_dashboard" ? (
+          <AIDashboard products={products} salesInfo={salesInfo} />
+        ) : activeView === "ai_recommendation" ? (
+          <AIRecommendation products={products} salesInfo={salesInfo} />
+        ) : activeView === "bi_analytics" ? (
+          <AnalyticsDashboard products={products} />
+        ) : activeView === "ai_monitoring" ? (
+          <AIMonitoring />
+        ) : activeView === "prediction_history" ? (
+          <PredictionHistory />
+        ) : activeView === "forecast_visualization" ? (
+          <ForecastVisualization />
+        ) : activeView === "products" ? (
           <section
             className="product-shell"
             aria-label="Product management page"
@@ -1369,124 +1596,128 @@ export default function App() {
                   <p className="eyebrow">Catalog</p>
                   <h2>Manage Products</h2>
                 </div>
-                <button
-                  className="secondary-action compact-button"
-                  type="button"
-                  onClick={resetProductForm}
-                >
-                  New product
-                </button>
-              </div>
-
-              <form
-                className="product-manager-grid"
-                onSubmit={submitProductForm}
-              >
-                <div className="floating-label-group">
-                  <input
-                    type="text"
-                    id="prod-name"
-                    value={productForm.name}
-                    onChange={(event) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder=" "
-                    required
-                  />
-                  <label htmlFor="prod-name">Product name</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    type="text"
-                    id="prod-category"
-                    value={productForm.category}
-                    onChange={(event) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        category: event.target.value,
-                      }))
-                    }
-                    placeholder=" "
-                    required
-                  />
-                  <label htmlFor="prod-category">Category</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    type="number"
-                    id="prod-price"
-                    min="0"
-                    value={productForm.current_price}
-                    onChange={(event) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        current_price: event.target.value,
-                      }))
-                    }
-                    placeholder=" "
-                  />
-                  <label htmlFor="prod-price">Current price</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    type="number"
-                    id="prod-cost"
-                    min="0"
-                    value={productForm.cost_price}
-                    onChange={(event) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        cost_price: event.target.value,
-                      }))
-                    }
-                    placeholder=" "
-                  />
-                  <label htmlFor="prod-cost">Cost price</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    type="number"
-                    id="prod-stock"
-                    min="0"
-                    value={productForm.stock}
-                    onChange={(event) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        stock: event.target.value,
-                      }))
-                    }
-                    placeholder=" "
-                  />
-                  <label htmlFor="prod-stock">Stock</label>
-                </div>
-
-                <div className="button-row">
-                  <button type="submit" disabled={isSavingProduct}>
-                    {isSavingProduct ? (
-                      <span className="spinner-btn-content">
-                        <span className="spinner-icon"></span>
-                        Saving...
-                      </span>
-                    ) : (
-                      productForm.id ? "Update Product" : "Add Product"
-                    )}
-                  </button>
+                {getNormalizedRole(userRole) !== "business analyst" && (
                   <button
-                    className="secondary-action"
+                    className="secondary-action compact-button"
                     type="button"
                     onClick={resetProductForm}
                   >
-                    Reset
+                    New product
                   </button>
-                </div>
-              </form>
+                )}
+              </div>
+
+              {getNormalizedRole(userRole) !== "business analyst" && (
+                <form
+                  className="product-manager-grid"
+                  onSubmit={submitProductForm}
+                >
+                  <div className="floating-label-group">
+                    <input
+                      type="text"
+                      id="prod-name"
+                      value={productForm.name}
+                      onChange={(event) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="prod-name">Product name</label>
+                  </div>
+
+                  <div className="floating-label-group">
+                    <input
+                      type="text"
+                      id="prod-category"
+                      value={productForm.category}
+                      onChange={(event) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          category: event.target.value,
+                        }))
+                      }
+                      placeholder=" "
+                      required
+                    />
+                    <label htmlFor="prod-category">Category</label>
+                  </div>
+
+                  <div className="floating-label-group">
+                    <input
+                      type="number"
+                      id="prod-price"
+                      min="0"
+                      value={productForm.current_price}
+                      onChange={(event) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          current_price: event.target.value,
+                        }))
+                      }
+                      placeholder=" "
+                    />
+                    <label htmlFor="prod-price">Current price</label>
+                  </div>
+
+                  <div className="floating-label-group">
+                    <input
+                      type="number"
+                      id="prod-cost"
+                      min="0"
+                      value={productForm.cost_price}
+                      onChange={(event) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          cost_price: event.target.value,
+                        }))
+                      }
+                      placeholder=" "
+                    />
+                    <label htmlFor="prod-cost">Cost price</label>
+                  </div>
+
+                  <div className="floating-label-group">
+                    <input
+                      type="number"
+                      id="prod-stock"
+                      min="0"
+                      value={productForm.stock}
+                      onChange={(event) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          stock: event.target.value,
+                        }))
+                      }
+                      placeholder=" "
+                    />
+                    <label htmlFor="prod-stock">Stock</label>
+                  </div>
+
+                  <div className="button-row">
+                    <button type="submit" disabled={isSavingProduct}>
+                      {isSavingProduct ? (
+                        <span className="spinner-btn-content">
+                          <span className="spinner-icon"></span>
+                          Saving...
+                        </span>
+                      ) : (
+                        productForm.id ? "Update Product" : "Add Product"
+                      )}
+                    </button>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={resetProductForm}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </form>
+              )}
 
               <div className="table-search-bar">
                 <input
@@ -1528,7 +1759,7 @@ export default function App() {
                       }} style={{ cursor: "pointer" }} className="sortable-header">
                         Stock {catalogSortField === "stock" ? (catalogSortOrder === "asc" ? " ▲" : " ▼") : ""}
                       </th>
-                      <th>Actions</th>
+                      {getNormalizedRole(userRole) !== "business analyst" && <th>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1537,26 +1768,28 @@ export default function App() {
                         <tr key={item.id}>
                           <td>{item.name}</td>
                           <td>{item.category}</td>
-                          <td>${item.current_price}</td>
+                          <td>{formatCurrency(item.current_price)}</td>
                           <td>{item.stock}</td>
-                          <td>
-                            <div className="inline-actions">
-                              <button
-                                type="button"
-                                className="link-button compact-button"
-                                onClick={() => editProduct(item)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary-button compact-button"
-                                onClick={() => deleteProduct(item.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
+                          {getNormalizedRole(userRole) !== "business analyst" && (
+                            <td>
+                              <div className="inline-actions">
+                                <button
+                                  type="button"
+                                  className="link-button compact-button"
+                                  onClick={() => editProduct(item)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary-button compact-button"
+                                  onClick={() => deleteProduct(item.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))
                     ) : (
@@ -1593,407 +1826,126 @@ export default function App() {
               </div>
             </section>
           </section>
-        ) : getNormalizedRole(userRole) === "pricing manager" ? (
-          <>
-            <section className="workspace-grid" aria-label="Pricing tools">
-              <form
-                className="tool-panel"
-                id="pricingForm"
-                onSubmit={handlePricingSubmit}
-              >
-                <div className="panel-title">
-                  <p className="eyebrow">Optimizer</p>
-                  <h2>Price Recommendation</h2>
-                </div>
-
-                <div className="floating-label-group">
-                  <select
-                    id="productSelect"
-                    value={pricingForm.product}
-                    onChange={(e) => {
-                      const selectedId = Number(e.target.value);
-                      const selectedProduct = products.find(
-                        (item) => item.id === selectedId,
-                      );
-                      setPricingForm({
-                        ...pricingForm,
-                        product: selectedId,
-                        basePrice: selectedProduct
-                          ? selectedProduct.current_price
-                          : pricingForm.basePrice,
-                      });
-                      setRecommendation(null);
-                    }}
-                    required
-                  >
-                    {products.length > 0 ? (
-                      products.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">Select a product</option>
-                    )}
-                  </select>
-                  <label htmlFor="productSelect">Product</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    id="basePrice"
-                    type="number"
-                    min="1"
-                    placeholder=" "
-                    value={pricingForm.basePrice}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        basePrice: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                  <label htmlFor="basePrice">Base price</label>
-                </div>
-
-                <div className="floating-label-group">
-                  <input
-                    id="competitorPrice"
-                    type="number"
-                    min="1"
-                    placeholder=" "
-                    value={pricingForm.competitorPrice}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        competitorPrice: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                  <label htmlFor="competitorPrice">Competitor price</label>
-                </div>
-
-                <div className="slider-label-group">
-                  <div className="slider-info">
-                    <span>Demand level</span>
-                    <output id="demandOutput">{pricingForm.demandLevel}%</output>
-                  </div>
-                  <input
-                    id="demandLevel"
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={pricingForm.demandLevel}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        demandLevel: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="slider-label-group">
-                  <div className="slider-info">
-                    <span>Inventory level</span>
-                    <output id="inventoryOutput">{pricingForm.inventoryLevel}%</output>
-                  </div>
-                  <input
-                    id="inventoryLevel"
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={pricingForm.inventoryLevel}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        inventoryLevel: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="button-row">
-                  <button type="submit" disabled={isSubmittingPricing}>
-                    {isSubmittingPricing ? (
-                      <span className="spinner-btn-content">
-                        <span className="spinner-icon"></span>
-                        Optimizing...
-                      </span>
-                    ) : "Update Recommendation"}
-                  </button>
-                  <button className="secondary-action" type="button">
-                    Apply price
-                  </button>
-                </div>
-              </form>
-
-              <section className="tool-panel">
-                <div className="panel-title">
-                  <p className="eyebrow">Products</p>
-                  <h2>Pricing Table</h2>
-                </div>
-
-              <div className="table-search-bar">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={pricingSearch}
-                  onChange={(e) => {
-                    setPricingSearch(e.target.value);
-                    setPricingPage(1);
-                  }}
-                  className="table-search-input"
-                />
-              </div>
-              <div className="table-wrap">
-                <table id="productTable">
-                  <thead>
-                    <tr>
-                      <th onClick={() => {
-                        setPricingSortOrder(pricingSortField === "name" && pricingSortOrder === "asc" ? "desc" : "asc");
-                        setPricingSortField("name");
-                      }} style={{ cursor: "pointer" }} className="sortable-header">
-                        Product {pricingSortField === "name" ? (pricingSortOrder === "asc" ? " ▲" : " ▼") : ""}
-                      </th>
-                      <th onClick={() => {
-                        setPricingSortOrder(pricingSortField === "current_price" && pricingSortOrder === "asc" ? "desc" : "asc");
-                        setPricingSortField("current_price");
-                      }} style={{ cursor: "pointer" }} className="sortable-header">
-                        Current {pricingSortField === "current_price" ? (pricingSortOrder === "asc" ? " ▲" : " ▼") : ""}
-                      </th>
-                      <th onClick={() => {
-                        setPricingSortOrder(pricingSortField === "suggested" && pricingSortOrder === "asc" ? "desc" : "asc");
-                        setPricingSortField("suggested");
-                      }} style={{ cursor: "pointer" }} className="sortable-header">
-                        Suggested {pricingSortField === "suggested" ? (pricingSortOrder === "asc" ? " ▲" : " ▼") : ""}
-                      </th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedPricing.length > 0 ? (
-                      paginatedPricing.map((item) => (
-                        <tr key={item.id}>
-                          <td>{item.name}</td>
-                          <td>${item.current_price}</td>
-                          <td>
-                            $
-                            {item.id === pricingForm.product
-                              ? recommendation
-                                ? recommendation.suggestedPrice
-                                : item.current_price
-                              : item.current_price}
-                          </td>
-                          <td>
-                            <span className="status-badge active-status">Active</span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="4"
-                          style={{ textAlign: "center", padding: "20px" }}
-                        >
-                          No products added yet
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="table-pagination">
-                <button
-                  type="button"
-                  disabled={pricingPage === 1}
-                  onClick={() => setPricingPage(prev => Math.max(prev - 1, 1))}
-                  className="pagination-btn"
-                >
-                  Prev
-                </button>
-                <span className="pagination-info">Page {pricingPage} of {totalPricingPages}</span>
-                <button
-                  type="button"
-                  disabled={pricingPage === totalPricingPages}
-                  onClick={() => setPricingPage(prev => Math.min(prev + 1, totalPricingPages))}
-                  className="pagination-btn"
-                >
-                  Next
-                </button>
-              </div>
-              </section>
-            </section>
-
-            <section
-              className="workspace-grid bottom-grid"
-              aria-label="Revenue intelligence"
-            >
-              <section className="tool-panel" id="salesPanel">
-                <div className="panel-title">
-                  <p className="eyebrow">Dataset</p>
-                  <h2>Sales Verification</h2>
-                </div>
-                {renderSalesTable()}
-              </section>
-
-              <section className="tool-panel" id="alertsPanel">
-                <div className="panel-title">
-                  <p className="eyebrow">Signals</p>
-                  <h2>Market Alerts</h2>
-                </div>
-                <ul className="alert-list" id="alertList">
-                  {alerts.map((alert) => (
-                    <li key={alert.id} className={`alert-${alert.type}`}>
-                      {alert.message}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </section>
-          </>
-        ) : getNormalizedRole(userRole) === "business analyst" ? (
-          <>
-            <section className="workspace-grid" aria-label="Analyst workspace">
-              <section className="tool-panel" id="analysisPanel">
-                <div className="panel-title">
-                  <p className="eyebrow">Analysis</p>
-                  <h2>Demand & Pricing Outlook</h2>
-                </div>
-                <ul className="insight-list">
-                  <li>
-                    Demand signals suggest strong momentum for premium audio
-                    products.
-                  </li>
-                  <li>
-                    Inventory pressure is easing for select accessories and
-                    peripherals.
-                  </li>
-                  <li>
-                    Revenue concentration is still strongest in mobile and
-                    display categories.
-                  </li>
-                </ul>
-              </section>
-
-              <section className="tool-panel" id="forecastPanel">
-                <div className="panel-title">
-                  <p className="eyebrow">Forecast</p>
-                  <h2>Scenario Planner</h2>
-                </div>
-                <div className="projection-box">
-                  <span>Scenario projection</span>
-                  <strong>
-                    {formatCurrency(dashboard?.total_revenue || 0)}
-                  </strong>
-                  <p>
-                    Current portfolio revenue suggests a stable and explainable
-                    baseline for the next pricing cycle.
-                  </p>
-                </div>
-              </section>
-            </section>
-
-            <section
-              className="workspace-grid bottom-grid"
-              aria-label="Analyst data quality"
-            >
-              <section className="tool-panel" id="salesPanel">
-                <div className="panel-title">
-                  <p className="eyebrow">Data Quality</p>
-                  <h2>Sales Verification</h2>
-                </div>
-                {renderSalesTable()}
-              </section>
-
-              <section className="tool-panel">
-                <div className="panel-title">
-                  <p className="eyebrow">Signals</p>
-                  <h2>Market Alerts</h2>
-                </div>
-                <ul className="alert-list">
-                  {alerts.map((alert) => (
-                    <li key={alert.id} className={`alert-${alert.type}`}>
-                      {alert.message}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </section>
-          </>
         ) : (
-          <>
-            <section className="workspace-grid" aria-label="User workspace">
-              <section className="tool-panel">
-                <div className="panel-title">
-                  <p className="eyebrow">View</p>
-                  <h2>What Changed</h2>
+          /* General User dashboard overview */
+          <div className="text-left w-full max-w-6xl mx-auto px-4 py-6 space-y-6">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 text-left" aria-label="Dashboard summary">
+              {/* Card 1: Total Products */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1 text-left">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">Catalog</span>
                 </div>
-                <ul className="insight-list">
-                  <li>
-                    Recent alerts are grouped so you can quickly understand the
-                    latest actions.
-                  </li>
-                  <li>
-                    Saved updates are available for your review without changing
-                    the pricing engine.
-                  </li>
-                  <li>
-                    Products tracked for you are surfaced so you can follow what
-                    matters most.
-                  </li>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Products</h3>
+                <div className="flex items-baseline gap-2 mt-1">
+                  {productsError ? (
+                    <span className="text-xs text-rose-500 font-medium">Error loading catalog</span>
+                  ) : (
+                    <span className="text-2xl font-bold text-slate-900 dark:text-white">{products.length}</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Active items tracked in database</p>
+              </div>
+
+              {/* Card 2: Current Revenue */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1 text-left">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Baseline</span>
+                </div>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Current Revenue</h3>
+                <div className="flex items-baseline gap-2 mt-1">
+                  {overviewError ? (
+                    <span className="text-xs text-rose-500 font-medium">Error loading revenue</span>
+                  ) : !overviewMetrics ? (
+                    <span className="text-2xl font-bold text-slate-400">—</span>
+                  ) : (
+                    <span className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(overviewMetrics.current_revenue)}</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Historical catalog baseline sales</p>
+              </div>
+
+              {/* Card 3: Expected Revenue */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1 text-left">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">Projected</span>
+                </div>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Expected Revenue</h3>
+                <div className="flex items-baseline gap-2 mt-1">
+                  {overviewError ? (
+                    <span className="text-xs text-rose-500 font-medium">Error loading revenue</span>
+                  ) : !overviewMetrics ? (
+                    <span className="text-2xl font-bold text-slate-400">—</span>
+                  ) : (
+                    <span className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(overviewMetrics.expected_revenue)}</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Optimization projected target revenue</p>
+              </div>
+
+              {/* Card 4: Revenue Growth % */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group hover:-translate-y-1 text-left">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="p-3 bg-cyan-50 dark:bg-cyan-950/40 rounded-xl text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">Uplift</span>
+                </div>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Revenue Growth %</h3>
+                <div className="flex items-baseline gap-2 mt-1">
+                  {overviewError ? (
+                    <span className="text-xs text-rose-500 font-medium">Error loading lift</span>
+                  ) : !overviewMetrics ? (
+                    <span className="text-2xl font-bold text-slate-400">—</span>
+                  ) : (
+                    <span className="text-2xl font-bold text-slate-900 dark:text-white">+{overviewMetrics.revenue_growth_percentage}%</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Relative dynamic price optimization lift</p>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Activity Outline</span>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">What Changed</h2>
+                </div>
+                <ul className="space-y-3.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  <li className="flex gap-2"><span>•</span><span>Recent pricing recommendations have been recalculated using the backend LightGBM and Prophet models.</span></li>
+                  <li className="flex gap-2"><span>•</span><span>Your session log records are stored locally for comparison. Use the optimizer panels to simulate price headroom.</span></li>
                 </ul>
               </section>
 
-              <section className="tool-panel">
-                <div className="panel-title">
-                  <p className="eyebrow">Next Step</p>
-                  <h2>Recommended Action</h2>
+              <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Next Action</span>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recommended Action</h2>
                 </div>
-                <div className="projection-box">
-                  <span>Suggested focus</span>
-                  <strong>Review your alerts</strong>
-                  <p>
-                    Use the latest market and pricing updates to stay aligned
-                    with the current plan.
-                  </p>
+                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Suggested Next Step</span>
+                  <strong className="text-base font-bold text-slate-800 dark:text-slate-200">Review dynamic alerts</strong>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Consult active monitoring metrics in the sidebar to review system logs.</p>
                 </div>
               </section>
-            </section>
-
-            <section
-              className="tool-panel history-panel"
-              aria-label="User history"
-            >
-              <div className="panel-title panel-title-row">
-                <div>
-                  <p className="eyebrow">Updates</p>
-                  <h2>Saved History</h2>
-                </div>
-              </div>
-              <div className="history-list" id="historyList">
-                {history.length > 0 ? (
-                  <ul>
-                    {history.map((item) => (
-                      <li key={item.id}>
-                        <div className="history-item">
-                          <strong>{item.product}</strong>
-                          <span className="history-price">
-                            ${item.basePrice} → ${item.suggestedPrice}
-                          </span>
-                          <span className="history-time">{item.timestamp}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="empty-state">No recommendations saved yet.</p>
-                )}
-              </div>
-            </section>
-          </>
+            </div>
+          </div>
         )}
       </main>
 
