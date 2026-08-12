@@ -391,6 +391,7 @@ class RecommendationService:
                 "expected_revenue": round(expected_revenue, 2),
                 "expected_profit": round(expected_profit, 2),
                 "current_stock": int(current_inventory),
+                "current_inventory": int(current_inventory),
                 "days_of_supply": round(days_of_supply, 1),
                 "price_elasticity": self.elasticity,
                 "demand_trend": self.prophet_trend,
@@ -400,6 +401,7 @@ class RecommendationService:
                 "summary": explanation,
                 "historical_sales": float(historical_sales),
                 "daily_sales_velocity": round(float(daily_sales_rate), 4),
+                "forecast_demand": round(expected_demand, 2),
                 "forecast_period": "90-day horizon"
             }
         }
