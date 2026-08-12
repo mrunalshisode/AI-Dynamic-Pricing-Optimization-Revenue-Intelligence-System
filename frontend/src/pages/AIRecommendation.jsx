@@ -18,34 +18,67 @@ export default function AIRecommendation({ products, salesInfo }) {
     }).format(val || 0);
   };
 
-  const getActiveConstraint = (report) => {
-    if (!report) return null;
+  const getMainReason = (report) => {
+    if (!report) return "";
+    const recPrice = report.recommended_price || 0;
+    const minPrice = report.minimum_allowed_price || 0;
+    const compPrice = report.competitor_price;
+    const supply = report.days_of_supply || 0;
+    const trend = report.demand_trend || "";
+
+    if (Math.abs(recPrice - minPrice) < 0.1) {
+      return "Minimum margin sets the lowest safe price.";
+    }
+    if (supply > 30 && compPrice !== null && compPrice !== undefined && compPrice > 0 && Math.abs(recPrice - Math.max(compPrice, minPrice)) < 0.1) {
+      return "Competitor pricing is putting downward pressure on the recommended price.";
+    }
+    if (supply > 30) {
+      return "High inventory is encouraging a lower price to increase sales.";
+    }
+    if (trend === "Increasing" || trend === "Seasonal") {
+      return "Strong demand allows the system to consider a higher price.";
+    }
+    return "The price is selected to balance demand, revenue, and profit.";
+  };
+
+  const getDynamicExplanation = (report) => {
+    if (!report) return "";
     const recPrice = report.recommended_price || 0;
     const minPrice = report.minimum_allowed_price || 0;
     const compPrice = report.competitor_price;
     const supply = report.days_of_supply || 0;
 
+    let parts = [];
+    if (supply > 30) {
+      parts.push("high inventory");
+    }
+    if (compPrice !== null && compPrice !== undefined && compPrice > 0 && compPrice < report.current_price) {
+      parts.push("competitor pressure");
+    }
+
+    const factorsText = parts.length > 0 ? parts.join(" and ") + " are pushing the price lower" : "market demand and price optimization determine the target price";
+
     if (Math.abs(recPrice - minPrice) < 0.1) {
-      return {
-        factor: "Cost / Minimum Margin Floor",
-        message: `Determined by Cost / Minimum Margin Floor: Price is constrained to the absolute floor of ${formatCurrency(minPrice)} to protect profitability, as cost is ${formatCurrency(report.cost_price)} and the minimum margin limit is 5% (Cost ₹${report.cost_price.toFixed(2)} * 1.05 = ₹${minPrice.toFixed(2)}).`
-      };
+      return `${factorsText.charAt(0).toUpperCase() + factorsText.slice(1)}. The minimum margin rule prevents the price from going below ${formatCurrency(minPrice)}.`;
     }
-
-    if (supply > 30 && compPrice !== null && compPrice !== undefined && compPrice > 0) {
-      const upperLimit = Math.max(compPrice, minPrice);
-      if (Math.abs(recPrice - upperLimit) < 0.1) {
-        return {
-          factor: "Competitor Price Cap",
-          message: `Determined by Competitor Price Cap: High inventory supply (${supply.toFixed(1)} days) triggered competitive capping to match competitor price of ${formatCurrency(compPrice)}.`
-        };
-      }
+    if (supply > 30 && compPrice !== null && compPrice !== undefined && compPrice > 0 && Math.abs(recPrice - Math.max(compPrice, minPrice)) < 0.1) {
+      return `${factorsText.charAt(0).toUpperCase() + factorsText.slice(1)}. The recommended price matches the competitor price cap of ${formatCurrency(compPrice)}.`;
     }
+    return `The price of ${formatCurrency(recPrice)} is selected to balance expected demand, revenue, and profit margin.`;
+  };
 
-    return {
-      factor: "Price Elasticity / Demand Engine",
-      message: `Determined by AI Profit Maximization: Optimized to ${formatCurrency(recPrice)} based on price elasticity (${report.price_elasticity}) and demand forecast to maximize expected revenue.`
-    };
+  const getColorClasses = (color) => {
+    switch (color) {
+      case "green":
+        return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40";
+      case "red":
+        return "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40";
+      case "yellow":
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-250 dark:border-amber-900/40";
+      case "blue":
+      default:
+        return "bg-sky-50 text-sky-700 dark:bg-sky-950/20 dark:text-sky-400 border border-sky-200 dark:border-sky-900/40";
+    }
   };
 
   const getFactorsList = (report) => {
@@ -64,180 +97,113 @@ export default function AIRecommendation({ products, salesInfo }) {
     const cost = report.cost_price || 0;
     const histSales = report.historical_sales || 0;
     const dailyVel = report.daily_sales_velocity || 0;
-    const horizon = report.forecast_period || "90-day horizon";
 
     const list = [];
 
-    // 1. Forecast Demand
-    let demandDir = "Neutral";
-    let demandStr = "Weak";
-    let demandReason = "Stable demand keeps baseline pricing target neutral.";
-    if (trend === "Seasonal" || trend === "Increasing") {
-      demandDir = "Upward";
-      demandStr = "Moderate";
-      demandReason = `Forecast demand of ${report.expected_demand.toFixed(1)} units over the forecast period supports price premium options.`;
-    } else if (trend === "Decreasing") {
-      demandDir = "Downward";
-      demandStr = "Strong";
-      demandReason = `Soft expected demand of ${report.expected_demand.toFixed(1)} units over the forecast period expects lower price adjustments.`;
-    }
+    // 1. Expected Demand
     list.push({
-      name: "Forecast Demand",
-      value: `${report.expected_demand.toFixed(1)} units (${horizon})`,
-      direction: demandDir,
-      strength: demandStr,
-      reason: demandReason
+      name: "Expected Demand",
+      value: `${report.expected_demand.toFixed(1)} units`,
+      meaning: "Expected sales volume supports the pricing decision.",
+      color: "blue"
     });
 
-    // 2. Historical Daily Sales Velocity
-    list.push({
-      name: "Historical Daily Sales Velocity",
-      value: `${dailyVel.toFixed(4)} units/day`,
-      direction: "Neutral",
-      strength: "Weak",
-      reason: `Formula: Historical Sales / 30 Days = ${histSales.toFixed(0)} / 30 = ${dailyVel.toFixed(4)} units/day velocity basis.`
-    });
-
-    // 3. Competitor Price
-    let compDir = "Neutral";
-    let compStr = "Weak";
-    let compReason = "No active competitor price pressure detected.";
+    // 2. Competitor Price
+    let compValue = "—";
+    let compMeaning = "No active competitor price detected.";
+    let compColor = "blue";
     if (compPrice !== null && compPrice !== undefined && compPrice > 0) {
-      if (compPrice > currPrice) {
-        compDir = "Upward";
-        compStr = "Moderate";
-        compReason = `Competitor price (${formatCurrency(compPrice)}) is higher than current price (${formatCurrency(currPrice)}), allowing upward headroom.`;
-      } else if (compPrice < currPrice) {
-        compDir = "Downward";
-        compStr = supply > 30 ? "Strong" : "Moderate";
-        compReason = supply > 30 
-          ? `Competitor price (${formatCurrency(compPrice)}) imposes a hard cap because inventory days of supply (${supply.toFixed(1)}) is high (> 30 days).`
-          : `Competitor price (${formatCurrency(compPrice)}) creates downward pressure on margins.`;
+      compValue = formatCurrency(compPrice);
+      if (compPrice < currPrice) {
+        compMeaning = "Competitor is cheaper → pricing pressure is high.";
+        compColor = "red";
       } else {
-        compDir = "Neutral";
-        compStr = "Weak";
-        compReason = "Competitor price matches current pricing level.";
+        compMeaning = "Competitor is more expensive → there is room for a higher price.";
+        compColor = "green";
       }
     }
     list.push({
       name: "Competitor Price",
-      value: compPrice ? formatCurrency(compPrice) : "—",
-      direction: compDir,
-      strength: compStr,
-      reason: compReason
+      value: compValue,
+      meaning: compMeaning,
+      color: compColor
     });
 
-    // 4. Cost / Minimum Margin
-    const isCostActive = Math.abs(recPrice - minPrice) < 0.1;
+    // 3. Minimum Safe Price
     list.push({
-      name: "Cost / Minimum Margin",
-      value: `${formatCurrency(cost)} (Min Floor: ${formatCurrency(minPrice)})`,
-      direction: "Hard Price Floor",
-      strength: isCostActive ? "Strong" : "Weak",
-      reason: isCostActive 
-        ? `Active constraint: Price is set to the floor of ${formatCurrency(minPrice)} to prevent margins from falling below cost + 5%.`
-        : `Inactive constraint: Recommended price stays safely above the minimum margin floor of ${formatCurrency(minPrice)}.`
+      name: "Minimum Safe Price",
+      value: formatCurrency(minPrice),
+      meaning: "Price cannot go below the minimum margin requirement.",
+      color: "yellow"
     });
 
-    // 5. Inventory / Days of Supply
-    let invDir = "Neutral";
-    let invStr = "Weak";
-    let invReason = "Healthy supply levels keep inventory contribution neutral.";
-    if (supply < 10) {
-      invDir = "Upward";
-      invStr = "Strong";
-      invReason = `Formula: Stock / Daily Sales Velocity = ${stock} / ${dailyVel.toFixed(4)} = ${supply.toFixed(1)} Days supply. Low supply (< 10 days) supports higher margins.`;
-    } else if (supply > 30) {
-      invDir = "Downward";
-      invStr = "Strong";
-      invReason = `Formula: Stock / Daily Sales Velocity = ${stock} / ${dailyVel.toFixed(4)} = ${supply.toFixed(1)} Days supply. Excess supply (> 30 days) forces downward price adjustment.`;
+    // 4. Inventory
+    let invValue = `${stock} units (${supply.toFixed(1)} days)`;
+    let invMeaning = "";
+    let invColor = "blue";
+    if (supply > 30) {
+      invColor = "red";
+      if (histSales > 0) {
+        invMeaning = `High inventory → lower pricing can help clear stock. (Stock: ${stock} units, Velocity: ${dailyVel.toFixed(2)} units/day = ${histSales.toFixed(0)} / 30. Days of supply: ${stock} / ${dailyVel.toFixed(2)} = ${supply.toFixed(1)} days)`;
+      } else {
+        invMeaning = "High inventory → lower pricing can help clear stock.";
+      }
+    } else {
+      if (histSales > 0) {
+        invMeaning = `Inventory is healthy → price does not need to be reduced for stock clearance. (Stock: ${stock} units, Velocity: ${dailyVel.toFixed(2)} units/day = ${histSales.toFixed(0)} / 30. Days of supply: ${stock} / ${dailyVel.toFixed(2)} = ${supply.toFixed(1)} days)`;
+      } else {
+        invMeaning = "Inventory is healthy → price does not need to be reduced for stock clearance.";
+      }
     }
     list.push({
-      name: "Inventory / Days of Supply",
-      value: `${stock} units (${supply.toFixed(1)} Days supply)`,
-      direction: invDir,
-      strength: invStr,
-      reason: invReason
+      name: "Inventory",
+      value: invValue,
+      meaning: invMeaning,
+      color: invColor
     });
 
-    // 6. Price Elasticity
-    let elDir = "Neutral";
-    let elStr = "Weak";
-    let elReason = "Unit elastic demand keeps revenue effect balanced.";
+    // 5. Price Sensitivity
+    let sensMeaning = "Customers are not highly price-sensitive.";
+    let sensColor = "blue";
     if (elasticity < -1.0) {
-      elDir = "Downward";
-      elStr = elasticity < -1.5 ? "Strong" : "Moderate";
-      elReason = `Price elasticity of ${elasticity} indicates high price sensitivity; lowering price will boost volume and revenue.`;
-    } else if (elasticity > -1.0) {
-      elDir = "Upward";
-      elStr = elasticity > -0.5 ? "Strong" : "Moderate";
-      elReason = `Price elasticity of ${elasticity} indicates low price sensitivity; allows price increases without significant volume drops.`;
+      sensMeaning = "Customers are price-sensitive → a lower price can increase sales volume.";
+      sensColor = "red";
     }
     list.push({
-      name: "Price Elasticity",
+      name: "Price Sensitivity",
       value: String(elasticity),
-      direction: elDir,
-      strength: elStr,
-      reason: elReason
+      meaning: sensMeaning,
+      color: sensColor
     });
 
-    // 7. Demand Trend
-    let trendDir = "Neutral";
-    let trendStr = "Weak";
-    let trendReason = "Steady trend keeps price projections stable.";
-    if (trend === "Increasing") {
-      trendDir = "Upward";
-      trendStr = "Strong";
-      trendReason = "Sustained upward sales momentum supports higher price targets.";
-    } else if (trend === "Seasonal") {
-      trendDir = "Upward";
-      trendStr = "Moderate";
-      trendReason = "Expected seasonal cycle pattern supports pricing optimization.";
-    } else if (trend === "Decreasing") {
-      trendDir = "Downward";
-      trendStr = "Strong";
-      trendReason = "Slowing sales momentum suggests downward pricing is required.";
-    }
+    // 6. Demand Trend
     list.push({
       name: "Demand Trend",
       value: trend,
-      direction: trendDir,
-      strength: trendStr,
-      reason: trendReason
+      meaning: "Seasonal demand is considered.",
+      color: "blue"
     });
 
-    // 8. Seasonality
-    let seasDir = "Neutral";
-    let seasStr = "Weak";
-    let seasReason = "Normal seasonal variations have neutral impact on target price.";
+    // 7. Seasonality
+    let seasMeaning = "Seasonal fluctuations are stable.";
+    let seasColor = "blue";
     if (seasonality === "Strong" || seasonality === "High") {
-      seasDir = "Upward";
-      seasStr = "Moderate";
-      seasReason = "High seasonal demand period supports higher price targets.";
+      seasMeaning = "Strong seasonality can support pricing flexibility.";
+      seasColor = "green";
     }
     list.push({
       name: "Seasonality",
       value: seasonality,
-      direction: seasDir,
-      strength: seasStr,
-      reason: seasReason
+      meaning: seasMeaning,
+      color: seasColor
     });
 
-    // 9. Forecast Confidence
-    let confStr = "Weak";
-    if (confidence > 85) {
-      confStr = "Strong";
-    } else if (confidence > 70) {
-      confStr = "Moderate";
-    }
+    // 8. Forecast Confidence
     list.push({
       name: "Forecast Confidence",
       value: confidence ? `${confidence.toFixed(2)}%` : "N/A",
-      direction: "Neutral",
-      strength: confStr,
-      reason: confidence > 85 
-        ? "High forecast accuracy increases recommendation reliability." 
-        : "Confidence level suggests stable prediction reliability."
+      meaning: confidence > 80 ? "Forecast has high confidence." : "Forecast has standard confidence.",
+      color: confidence > 80 ? "green" : "blue"
     });
 
     return list;
@@ -510,81 +476,56 @@ export default function AIRecommendation({ products, salesInfo }) {
 
       {/* Why did AI recommend this price? Card */}
       {recommendation && (
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-left text-slate-900 dark:text-white shadow-sm relative overflow-hidden space-y-6">
+        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-left text-slate-900 dark:text-white shadow-sm relative overflow-hidden space-y-6 animate-fade-in">
           <div className="absolute top-0 right-0 w-60 h-60 bg-violet-600/10 rounded-full filter blur-3xl -translate-y-1/2 translate-x-1/2"></div>
           
-          <div className="flex items-center gap-2 relative">
-            <div className="p-2.5 bg-violet-600/20 rounded-xl text-violet-600 dark:text-violet-400 border border-violet-500/20">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-1.81-2.904L4.5 18l.813-5.096L3 9h5.187L9 4l.813 5H15l-1.813 3.904L14 18l-4.188-2.096z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-lg tracking-tight">Why did AI recommend this price?</h3>
-          </div>
-
-          <div className="relative text-sm text-slate-700 dark:text-slate-200 leading-relaxed italic bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-5 rounded-xl">
-            {recommendation.pricing_analysis_report.summary}
-          </div>
-
-          {/* Ultimate Determining Constraint Callout */}
-          {(() => {
-            const constraint = getActiveConstraint(recommendation.pricing_analysis_report);
-            return constraint ? (
-              <div className="p-4 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 text-slate-800 dark:text-slate-200">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="flex h-2.5 w-2.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500"></span>
-                  </span>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Ultimate Determining Constraint</span>
-                </div>
-                <p className="text-sm font-semibold">{constraint.message}</p>
+          <div className="relative space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">Why This Price?</h2>
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-950/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-850">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">AI Recommended Price</span>
+                <span className="text-3xl font-extrabold text-violet-600 dark:text-violet-400 block">
+                  {formatCurrency(recommendation.pricing_analysis_report.recommended_price)}
+                </span>
               </div>
-            ) : null;
-          })()}
+              
+              <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">Main Reason For This Price</span>
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {getMainReason(recommendation.pricing_analysis_report)}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-750 dark:text-slate-350 leading-relaxed font-medium bg-slate-50/50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-850">
+              {getDynamicExplanation(recommendation.pricing_analysis_report)}
+            </p>
+          </div>
 
           <div className="relative border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/20 dark:bg-slate-950/40">
             <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
               <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="px-6 py-3.5 font-semibold">Factor</th>
-                  <th className="px-6 py-3.5 font-semibold">Actual Value</th>
-                  <th className="px-6 py-3.5 font-semibold">Effect Direction</th>
-                  <th className="px-6 py-3.5 font-semibold">Effect Strength</th>
-                  <th className="px-6 py-3.5 font-semibold">Reasoning</th>
+                  <th className="px-6 py-3.5 font-semibold">Value</th>
+                  <th className="px-6 py-3.5 font-semibold">What It Means</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-750 dark:text-slate-350 bg-white dark:bg-slate-900">
                 {getFactorsList(recommendation.pricing_analysis_report).map((factor, idx) => (
-                  <tr key={idx}>
-                    <td className="px-6 py-3.5 font-medium">{factor.name}</td>
-                    <td className="px-6 py-3.5">{factor.value}</td>
-                    <td className="px-6 py-3.5">
-                      {factor.direction === "Upward" && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50">↑ Upward</span>
-                      )}
-                      {factor.direction === "Downward" && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">↓ Downward</span>
-                      )}
-                      {factor.direction === "Hard Price Floor" && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50">Hard Floor</span>
-                      )}
-                      {factor.direction === "Neutral" && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">→ Neutral</span>
-                      )}
+                  <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-6 py-3.5 font-semibold text-slate-900 dark:text-white">
+                      {factor.name}
                     </td>
                     <td className="px-6 py-3.5">
-                      {factor.strength === "Strong" && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-900/40">Strong</span>
-                      )}
-                      {factor.strength === "Moderate" && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40">Moderate</span>
-                      )}
-                      {factor.strength === "Weak" && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Weak</span>
-                      )}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${getColorClasses(factor.color)}`}>
+                        {factor.value}
+                      </span>
                     </td>
-                    <td className="px-6 py-3.5 text-xs text-slate-500 dark:text-slate-400 leading-normal">{factor.reason}</td>
+                    <td className="px-6 py-3.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                      {factor.meaning}
+                    </td>
                   </tr>
                 ))}
               </tbody>
