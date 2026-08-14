@@ -10,6 +10,7 @@ import PredictionHistory from "./pages/PredictionHistory";
 import PricingManagerDashboard from "./pages/PricingManagerDashboard";
 import BusinessAnalystDashboard from "./pages/BusinessAnalystDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import SeasonalTrendReports from "./pages/SeasonalTrendReports";
 
 const API = "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -29,7 +30,26 @@ function formatINR(value) {
 const formatCurrency = formatINR;
 
 export default function App() {
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [token, setToken] = useState(() => {
+    const savedToken = localStorage.getItem("token") || "";
+    if (savedToken) {
+      try {
+        const payload = JSON.parse(atob(savedToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userName");
+          localStorage.removeItem("userRole");
+          return "";
+        }
+      } catch (e) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userRole");
+        return "";
+      }
+    }
+    return savedToken;
+  });
   const [mode, setMode] = useState("login");
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState(
@@ -947,6 +967,25 @@ export default function App() {
   }
 
   useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && error.response.status === 401) {
+          const detail = error.response.data?.detail;
+          if (detail === "Invalid token" || detail === "User not found") {
+            logout();
+            showToast("Session expired. Please log in again.", "error");
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  useEffect(() => {
     if (token) {
       const storedName = localStorage.getItem("userName") || "User";
       const storedRole = getNormalizedRole(
@@ -1024,6 +1063,7 @@ export default function App() {
         { label: "Admin Dashboard", type: "view", view: "admin_dashboard" },
         { label: "User & Role Management", type: "view", view: "admin_dashboard" },
         { label: "Products Catalog", type: "view", view: "products" },
+        { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "System/Database Health", type: "view", view: "admin_dashboard" },
         { label: "ML Model Status", type: "view", view: "admin_dashboard" },
         { label: "System Configuration", type: "view", view: "admin_dashboard" },
@@ -1033,6 +1073,7 @@ export default function App() {
       return [
         { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
     }
@@ -1040,6 +1081,7 @@ export default function App() {
       return [
         { label: "Pricing Insights", type: "view", view: "bi_analytics" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
     }
@@ -1313,13 +1355,13 @@ export default function App() {
     const r = getNormalizedRole(role);
     if (view === "dashboard") return true;
     if (r === "admin") {
-      return ["admin_dashboard", "products", "ai_monitoring", "prediction_history"].includes(view);
+      return ["admin_dashboard", "products", "ai_monitoring", "prediction_history", "seasonal_trends"].includes(view);
     }
     if (r === "pricing manager") {
-      return ["pricing_manager_dashboard", "ai_recommendation", "products"].includes(view);
+      return ["pricing_manager_dashboard", "ai_recommendation", "products", "seasonal_trends"].includes(view);
     }
     if (r === "business analyst") {
-      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products"].includes(view);
+      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", "seasonal_trends"].includes(view);
     }
     return false;
   }
@@ -1557,7 +1599,9 @@ export default function App() {
         ) : activeView === "ai_dashboard" ? (
           <AIDashboard products={products} salesInfo={salesInfo} />
         ) : activeView === "ai_recommendation" ? (
-          <AIRecommendation products={products} salesInfo={salesInfo} />
+          <AIRecommendation products={products} salesInfo={salesInfo} userRole={userRole} />
+        ) : activeView === "seasonal_trends" ? (
+          <SeasonalTrendReports products={products} />
         ) : activeView === "bi_analytics" ? (
           <AnalyticsDashboard products={products} />
         ) : activeView === "ai_monitoring" ? (

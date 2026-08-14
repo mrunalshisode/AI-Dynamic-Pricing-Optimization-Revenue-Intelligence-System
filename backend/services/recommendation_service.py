@@ -31,6 +31,25 @@ class RecommendationService:
         self.forecast_service = forecast_service or ForecastService()
         self.elasticity = elasticity
         self.prophet_trend = self._load_prophet_trend()
+        
+        # Load demand forecasting service
+        try:
+            from services.demand_forecast_service import DemandForecastService
+            self.demand_forecast_service = DemandForecastService(
+                pricing_service=self.pricing_service,
+                forecast_service=self.forecast_service
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load DemandForecastService in RecommendationService: {e}")
+            self.demand_forecast_service = None
+
+        # Load seasonal trend service
+        try:
+            from services.seasonal_trend_service import SeasonalTrendService
+            self.seasonal_trend_service = SeasonalTrendService()
+        except Exception as e:
+            logger.warning(f"Failed to load SeasonalTrendService in RecommendationService: {e}")
+            self.seasonal_trend_service = None
 
     def _load_prophet_trend(self) -> str:
         """
@@ -91,38 +110,48 @@ class RecommendationService:
             except Exception as e:
                 logger.warning(f"Error querying database for historical sales in recommendation service: {e}")
 
-        daily_sales = max(0.01, float(product_features.get("quantity", 10.0)))
-        daily_sales_rate = historical_sales / 30.0 if historical_sales > 0 else daily_sales
-        days_of_supply = current_inventory / daily_sales_rate if daily_sales_rate > 0 else 30.0
-        
+        # Correct calculation strictly using the historical sales source
+        if historical_sales > 0:
+            daily_sales_rate = historical_sales / 30.0
+            days_of_supply = current_inventory / daily_sales_rate
+            inv_status = "Low Inventory (Stockout Risk)" if days_of_supply < 10 else "Excess Inventory (Clearance)" if days_of_supply > 30 else "Healthy Inventory Level"
+            supply_display = f"{days_of_supply:.1f} days of supply"
+        else:
+            daily_sales_rate = "N/A"
+            days_of_supply = "Insufficient sales history"
+            inv_status = "Insufficient sales history"
+            supply_display = "insufficient sales history"
+
+        # Internal decision days of supply to preserve pricing recommendation algorithm decisions
+        daily_sales_fallback = max(0.01, float(product_features.get("quantity", 10.0)))
+        daily_sales_rate_decision = historical_sales / 30.0 if historical_sales > 0 else daily_sales_fallback
+        decision_days_of_supply = current_inventory / daily_sales_rate_decision if daily_sales_rate_decision > 0 else 30.0
+
+        supply_log = f"{days_of_supply:.4f}" if isinstance(days_of_supply, (int, float)) else str(days_of_supply)
+        velocity_log = f"{daily_sales_rate:.4f}" if isinstance(daily_sales_rate, (int, float)) else str(daily_sales_rate)
         print(f"stock: {current_inventory}")
         print(f"historical sales: {historical_sales}")
-        print(f"daily sales velocity: {daily_sales_rate:.4f}")
-        print(f"days_of_supply: {days_of_supply:.4f}")
+        print(f"daily sales velocity: {velocity_log}")
+        print(f"days_of_supply: {supply_log}")
         
         logger.info(
-            f"Inventory details: stock={current_inventory}, "
-            f"historical_sales={historical_sales}, "
-            f"daily_sales_velocity={daily_sales_rate:.4f}, "
-            f"days_of_supply={days_of_supply:.4f}"
+            f"Days of Supply Calculation details: "
+            f"Current Inventory = {current_inventory}, "
+            f"Historical Sales = {historical_sales}, "
+            f"Sales Period = 30 days, "
+            f"Daily Sales Velocity = {velocity_log}, "
+            f"Days of Supply = {supply_log}"
         )
         
-        if days_of_supply < 10:
-            inv_status = "Low Inventory (Stockout Risk)"
-        elif days_of_supply > 30:
-            inv_status = "Excess Inventory (Clearance)"
-        else:
-            inv_status = "Healthy Inventory Level"
-            
         # 2. Demand multiplier based on Prophet trend
         demand_mult = self.get_demand_multiplier()
+        
+        # Safe denominator for division by current_price to prevent division by zero
+        safe_current_price = max(0.01, current_price)
         
         # 3. Cost Price & Margins
         cost_price = cost_price if cost_price is not None else (current_price * 0.7)
         min_allowed_price = cost_price * 1.05  # strictly cost + 5% minimum margin
-
-        # 4. Baseline demand (historical sales at current price)
-        forecast_demand = historical_sales if historical_sales > 0 else 10.0
 
         # 5. Fetch actual confidence score from ForecastService if available
         confidence_val = None
@@ -133,6 +162,19 @@ class RecommendationService:
             except Exception as e:
                 logger.warning(f"Failed to fetch actual forecast confidence: {e}")
         confidence_pct = confidence_val if confidence_val is not None else 80.0
+
+        # 4. Baseline demand (historical sales or integrated forecasting service)
+        short_term_demand = None
+        if self.demand_forecast_service:
+            try:
+                forecast_res = self.demand_forecast_service.get_forecast_for_product(stockcode, competitor_price=competitor_price)
+                if forecast_res and forecast_res.get("short_term", {}).get("expected_demand") is not None:
+                    short_term_demand = forecast_res["short_term"]["expected_demand"]
+                    confidence_pct = forecast_res["short_term"]["confidence"] or confidence_pct
+            except Exception as e:
+                logger.warning(f"Failed to fetch short term forecast in recommendation: {e}")
+        
+        forecast_demand = short_term_demand if short_term_demand is not None else (historical_sales if historical_sales > 0 else 10.0)
         confidence_factor = confidence_pct / 100.0
 
         # Calculate dynamic competitor constraint limits if competitor_price is present
@@ -141,9 +183,9 @@ class RecommendationService:
             base_max_premium = 0.05  # 5% by default
             
             # Low stock allows higher premium
-            if days_of_supply < 10:
+            if decision_days_of_supply < 10:
                 base_max_premium += 0.10
-            elif days_of_supply > 30:
+            elif decision_days_of_supply > 30:
                 base_max_premium = 0.0  # No premium allowed over competitor to stimulate volume
                 
             # Demand trend influence
@@ -186,11 +228,11 @@ class RecommendationService:
                 continue
 
             # Constraint: If inventory is high and demand is weak, consider a lower price
-            if days_of_supply > 30 and self.prophet_trend == "Decreasing" and p_cand > current_price * 0.99:
+            if decision_days_of_supply > 30 and self.prophet_trend == "Decreasing" and p_cand > current_price * 0.99:
                 continue
 
             # Adjust expected demand using price elasticity
-            elasticity_ratio = 1.0 + (self.elasticity * (p_cand - current_price) / current_price)
+            elasticity_ratio = 1.0 + (self.elasticity * (p_cand - current_price) / safe_current_price)
             elasticity_ratio = max(0.0, elasticity_ratio)
             
             # Competitor pricing sensitivity adjustment:
@@ -200,9 +242,9 @@ class RecommendationService:
                     deviation = (p_cand - competitor_price) / competitor_price
                     # Calculate sensitivity factor based on inventory and trend
                     sensitivity = 4.0
-                    if days_of_supply < 10:
+                    if decision_days_of_supply < 10:
                         sensitivity -= 1.5
-                    elif days_of_supply > 30:
+                    elif decision_days_of_supply > 30:
                         sensitivity += 1.0
                         
                     if self.prophet_trend in ["Increasing", "Seasonal"]:
@@ -230,7 +272,7 @@ class RecommendationService:
         if not valid_candidates:
             for p_cand in candidates:
                 if p_cand >= min_allowed_price:
-                    elasticity_ratio = max(0.0, 1.0 + (self.elasticity * (p_cand - current_price) / current_price))
+                    elasticity_ratio = max(0.0, 1.0 + (self.elasticity * (p_cand - current_price) / safe_current_price))
                     expected_demand = max(0.0, forecast_demand * elasticity_ratio * demand_mult)
                     expected_revenue = p_cand * expected_demand
                     expected_profit = (p_cand - cost_price) * expected_demand
@@ -246,25 +288,25 @@ class RecommendationService:
         recommended_price, expected_demand, expected_revenue, expected_profit = best_candidate
 
         # Strict competitor/inventory constraint enforcement:
-        # If days_of_supply > 30 and competitor price is available, do not exceed competitor price
+        # If decision_days_of_supply > 30 and competitor price is available, do not exceed competitor price
         # (unless competitor price is below cost + margin, in which case keep at min_allowed_price)
-        if days_of_supply > 30 and competitor_price is not None and competitor_price > 0:
+        if decision_days_of_supply > 30 and competitor_price is not None and competitor_price > 0:
             upper_limit = max(competitor_price, min_allowed_price)
             recommended_price = min(recommended_price, upper_limit)
         else:
             recommended_price = max(recommended_price, min_allowed_price)
 
         # Recalculate metrics for final recommended price to guarantee mathematical consistency
-        elasticity_ratio = 1.0 + (self.elasticity * (recommended_price - current_price) / current_price)
+        elasticity_ratio = 1.0 + (self.elasticity * (recommended_price - current_price) / safe_current_price)
         elasticity_ratio = max(0.0, elasticity_ratio)
         competitor_mult = 1.0
         if competitor_price is not None and competitor_price > 0:
             if recommended_price > competitor_price:
                 deviation = (recommended_price - competitor_price) / competitor_price
                 sensitivity = 4.0
-                if days_of_supply < 10:
+                if decision_days_of_supply < 10:
                     sensitivity -= 1.5
-                elif days_of_supply > 30:
+                elif decision_days_of_supply > 30:
                     sensitivity += 1.0
                 if self.prophet_trend in ["Increasing", "Seasonal"]:
                     sensitivity -= 1.0
@@ -283,7 +325,7 @@ class RecommendationService:
 
         # Recommended action selection
         price_diff = recommended_price - current_price
-        price_diff_pct = (price_diff / current_price) * 100
+        price_diff_pct = (price_diff / safe_current_price) * 100
         
         if price_diff_pct > 2.0:
             action = "Increase Price"
@@ -306,7 +348,7 @@ class RecommendationService:
             if is_margin_protect:
                 primary_reason = "margin protection due to cost limits"
                 explanation = (
-                    f"With inventory levels at {days_of_supply:.1f} days of supply (excess stock) and competitor price at "
+                    f"With inventory levels showing {supply_display} (excess stock) and competitor price at "
                     f"₹{competitor_price:.2f} creating strong price pressure, the price is set to the minimum margin constraint of "
                     f"₹{recommended_price:.2f} to protect profitability."
                 )
@@ -315,49 +357,68 @@ class RecommendationService:
                 explanation = (
                     f"The recommended price is set to ₹{recommended_price:.2f} due to competitor price pressure from the cheaper "
                     f"competitor's price of ₹{competitor_price:.2f}. Charging a higher premium would severely reduce expected demand "
-                    f"due to price elasticity and high inventory ({days_of_supply:.1f} days of supply)."
+                    f"due to price elasticity and high inventory ({supply_display})."
                 )
-            elif days_of_supply > 30 and price_diff_pct < -2.0:
+            elif decision_days_of_supply > 30 and price_diff_pct < -2.0:
                 primary_reason = "excess inventory clearance"
                 explanation = (
-                    f"With inventory levels at {days_of_supply:.1f} days of supply (excess stock) and competitor price at "
+                    f"With inventory levels showing {supply_display} (excess stock) and competitor price at "
                     f"₹{competitor_price:.2f}, the price is reduced to ₹{recommended_price:.2f} to stimulate expected demand and "
                     f"accelerate inventory clearance while protecting margins."
                 )
-            elif days_of_supply < 10 and price_diff_pct > 2.0:
+            elif decision_days_of_supply < 10 and price_diff_pct > 2.0:
                 primary_reason = "low inventory capture premium"
                 explanation = (
-                    f"Due to low stock levels ({days_of_supply:.1f} days of supply) and strong {self.prophet_trend} demand, the "
+                    f"Due to low stock levels ({supply_display}) and strong {self.prophet_trend} demand, the "
                     f"price is increased to ₹{recommended_price:.2f} to capture a premium and maximize expected profit."
                 )
             else:
                 primary_reason = "competitor market alignment"
                 explanation = (
                     f"Price is optimized to ₹{recommended_price:.2f} based on competitor alignment with the market price of "
-                    f"₹{competitor_price:.2f}, expected demand of {expected_demand:.1f} units, and inventory levels at "
-                    f"{days_of_supply:.1f} days of supply."
+                    f"₹{competitor_price:.2f}, expected demand of {expected_demand:.1f} units, and inventory levels showing "
+                    f"{supply_display}."
                 )
         else:
             if price_diff_pct > 2.0:
                 primary_reason = "maximize expected profit"
                 explanation = (
                     f"Price is increased to ₹{recommended_price:.2f} to maximize expected profit under strong {self.prophet_trend} "
-                    f"demand and inventory levels of {days_of_supply:.1f} days of supply."
+                    f"demand and inventory levels showing {supply_display}."
                 )
             elif price_diff_pct < -2.0:
                 primary_reason = "stimulate quantity sales"
                 explanation = (
                     f"Price is decreased to ₹{recommended_price:.2f} to stimulate expected demand and clear excess stock "
-                    f"({days_of_supply:.1f} days of supply)."
+                    f"({supply_display})."
                 )
             else:
                 primary_reason = "maintain stable margins"
                 explanation = (
                     f"Price is maintained at ₹{recommended_price:.2f} to maintain optimal margins under stable demand "
-                    f"and healthy inventory levels ({days_of_supply:.1f} days of supply)."
+                    f"and healthy inventory levels ({supply_display})."
                 )
 
-        reason_paragraph = f"For SKU {stockcode}, stock levels are at {days_of_supply:.1f} days of supply ({inv_status}), cost price is ₹{cost_price:.2f} (with cost constraints applied), competitor price is ₹{competitor_price:.2f} if available, demand forecast indicates {self.prophet_trend} patterns. We recommend action: {action} ({price_diff_pct:+.1f}%) to ₹{recommended_price:.2f}. Reason: {primary_reason}."
+        # Get seasonal trends
+        seasonality_val = "Moderate"
+        peak_period = "N/A"
+        low_period = "N/A"
+        seasonal_insights = []
+        if self.seasonal_trend_service:
+            try:
+                seasonal_data = self.seasonal_trend_service.get_seasonal_trends(stockcode)
+                seasonality_val = seasonal_data.get("seasonality", "Moderate")
+                peak_period = seasonal_data.get("peak_period", "N/A")
+                low_period = seasonal_data.get("low_period", "N/A")
+                seasonal_insights = seasonal_data.get("insights", [])
+            except Exception as e:
+                logger.warning(f"Failed to load seasonal data in recommendation: {e}")
+
+        comp_display = f"₹{competitor_price:.2f}" if competitor_price is not None else "N/A"
+        reason_paragraph = f"For SKU {stockcode}, stock levels show {supply_display} ({inv_status}), cost price is ₹{cost_price:.2f} (with cost constraints applied), competitor price is {comp_display} if available, demand forecast indicates {self.prophet_trend} patterns. We recommend action: {action} ({price_diff_pct:+.1f}%) to ₹{recommended_price:.2f}. Reason: {primary_reason}."
+
+        final_days_of_supply = round(days_of_supply, 1) if isinstance(days_of_supply, (int, float)) else days_of_supply
+        final_daily_sales_velocity = round(float(daily_sales_rate), 4) if isinstance(daily_sales_rate, (int, float)) else daily_sales_rate
 
         return {
             "recommended_price": round(recommended_price, 2),
@@ -369,16 +430,25 @@ class RecommendationService:
             "cost_price": round(cost_price, 2),
             "elasticity": self.elasticity,
             "demand_trend": self.prophet_trend,
+            "seasonality": seasonality_val,
+            "peak_period": peak_period,
+            "low_period": low_period,
+            "seasonal_insights": seasonal_insights,
             "recommendation": action,
             "reason": reason_paragraph,
-            "model_signals": f"Inventory: {days_of_supply:.1f} days of supply, Cost limit: ₹{min_allowed_price:.2f}, Competitor: ₹{competitor_price if competitor_price else 0.0:.2f}",
+            "model_signals": f"Inventory: {supply_display}, Cost limit: ₹{min_allowed_price:.2f}, Competitor: ₹{competitor_price if competitor_price else 0.0:.2f}",
             "confidence": confidence_pct,
+            "current_inventory": int(current_inventory),
+            "historical_sales": float(historical_sales),
+            "daily_sales_velocity": final_daily_sales_velocity,
+            "days_of_supply": final_days_of_supply,
+            "sales_period_days": 30,
             "metrics": {
                 "price_difference": round(price_diff, 2),
                 "price_difference_percentage": round(price_diff_pct, 2),
                 "revenue_gain": round(rev_gain, 2),
                 "revenue_growth_percentage": round(rev_gain_pct, 2),
-                "days_of_supply": round(days_of_supply, 1)
+                "days_of_supply": final_days_of_supply
             },
             "pricing_analysis_report": {
                 "current_price": round(current_price, 2),
@@ -392,7 +462,7 @@ class RecommendationService:
                 "expected_profit": round(expected_profit, 2),
                 "current_stock": int(current_inventory),
                 "current_inventory": int(current_inventory),
-                "days_of_supply": round(days_of_supply, 1),
+                "days_of_supply": final_days_of_supply,
                 "price_elasticity": self.elasticity,
                 "demand_trend": self.prophet_trend,
                 "seasonality": "Strong" if self.prophet_trend in ["Seasonal", "Increasing"] else "Stable" if self.prophet_trend == "Stable" else "Decreasing",
@@ -400,9 +470,10 @@ class RecommendationService:
                 "model_used": "Prophet (Demand) + Expected Profit Maximization Engine",
                 "summary": explanation,
                 "historical_sales": float(historical_sales),
-                "daily_sales_velocity": round(float(daily_sales_rate), 4),
+                "daily_sales_velocity": final_daily_sales_velocity,
                 "forecast_demand": round(expected_demand, 2),
-                "forecast_period": "90-day horizon"
+                "forecast_period": "90-day horizon",
+                "sales_period_days": 30
             }
         }
 
