@@ -277,4 +277,4 @@ backend/datasets/features/
 backend/datasets/raw/
 
 # Model checkpoints
-*.joblib
+*.joblibbackend/saved_models_backup/

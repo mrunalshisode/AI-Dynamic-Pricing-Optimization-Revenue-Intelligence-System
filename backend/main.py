@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -55,6 +55,10 @@ app.include_router(ai_router)
 # Register Dashboard router
 from routes.dashboard import router as dashboard_router
 app.include_router(dashboard_router)
+
+# Register Seasonal Trends router
+from routes.seasonal_trends import router as seasonal_trends_router
+app.include_router(seasonal_trends_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -427,6 +431,22 @@ def google_login(data: GoogleAuthRequest, db: Session = Depends(get_db)):
         "role": user.role,
         "user_name": user.name,
     }
+
+
+@app.get("/api/forecast/{product_id}")
+def get_product_forecast(
+    product_id: str,
+    competitor_price: float = Query(None),
+    user: User = Depends(get_current_user)
+):
+    from services.demand_forecast_service import DemandForecastService
+    try:
+        service = DemandForecastService()
+        return service.get_forecast_for_product(product_id, competitor_price=competitor_price)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/products")
