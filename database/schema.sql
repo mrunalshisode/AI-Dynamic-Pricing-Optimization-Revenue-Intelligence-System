@@ -24,6 +24,45 @@ CREATE TABLE sales_records (
     price NUMERIC(10,2)
 );
 
+CREATE TABLE competitor_prices (
+    id SERIAL PRIMARY KEY,
+    product_id VARCHAR(50),
+    competitor_name VARCHAR(100),
+    competitor_product_name VARCHAR(150),
+    competitor_url TEXT,
+    competitor_price NUMERIC(10,2),
+    currency VARCHAR(10) DEFAULT 'USD',
+    availability VARCHAR(50) DEFAULT 'In Stock',
+    last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    previous_price NUMERIC(10,2),
+    price_change NUMERIC(10,2),
+    price_change_percent NUMERIC(10,2)
+);
+
+CREATE TABLE competitor_price_history (
+    id SERIAL PRIMARY KEY,
+    product_id VARCHAR(50),
+    competitor_name VARCHAR(100),
+    competitor_price NUMERIC(10,2),
+    currency VARCHAR(10) DEFAULT 'USD',
+    last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE competitor_alerts (
+    id SERIAL PRIMARY KEY,
+    product_id VARCHAR(50),
+    competitor_name VARCHAR(100),
+    event_type VARCHAR(50),
+    previous_price NUMERIC(10,2),
+    current_price NUMERIC(10,2) NOT NULL,
+    change_amount NUMERIC(10,2),
+    change_percent NUMERIC(10,2),
+    severity VARCHAR(20),
+    message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_acknowledged BOOLEAN DEFAULT FALSE
+);
+
 INSERT INTO products (name, category, current_price, cost_price, stock) VALUES
 ('Wireless Headphones', 'Audio', 1999.00, 1299.00, 85),
 ('Smartwatch', 'Wearables', 3499.00, 2299.00, 64),

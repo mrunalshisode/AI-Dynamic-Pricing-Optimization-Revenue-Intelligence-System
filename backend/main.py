@@ -11,8 +11,10 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -22,20 +24,8 @@ ALGORITHM = "HS256"
 ALLOWED_ROLES = {"admin", "pricing manager", "business analyst"}
 
 
-def load_env_file():
-    env_path = BACKEND_DIR / ".env"
-    if not env_path.exists():
-        return
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-load_env_file()
+# Load environment variables
+load_dotenv(dotenv_path=BACKEND_DIR / ".env")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 from database.postgres import POSTGRES_URL
@@ -59,6 +49,10 @@ app.include_router(dashboard_router)
 # Register Seasonal Trends router
 from routes.seasonal_trends import router as seasonal_trends_router
 app.include_router(seasonal_trends_router)
+
+# Register Competitor Monitoring router
+from routes.competitor_monitoring import router as competitor_monitoring_router
+app.include_router(competitor_monitoring_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -92,6 +86,9 @@ class Product(Base):
     cost_price = Column(Float)
     stock = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_competitor_scan = Column(DateTime, nullable=True)
+    next_competitor_scan = Column(DateTime, nullable=True, index=True, default=datetime.utcnow)
+    monitoring_priority = Column(String(20), default="MEDIUM", index=True)
 
 
 class SalesRecord(Base):
@@ -104,7 +101,141 @@ class SalesRecord(Base):
     price = Column(Float)
 
 
+class CompetitorPrice(Base):
+    __tablename__ = "competitor_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(String(50), ForeignKey("products.id"), index=True)
+    competitor_name = Column(String, index=True)
+    competitor_product_name = Column(String)
+    competitor_url = Column(String)
+    competitor_price = Column(Float)
+    currency = Column(String, default="USD")
+    availability = Column(String, default="In Stock")
+    last_checked = Column(DateTime, default=datetime.utcnow)
+    previous_price = Column(Float, nullable=True)
+    price_change = Column(Float, nullable=True)
+    price_change_percent = Column(Float, nullable=True)
+    data_source = Column(String(50), default="mock_fallback", nullable=True)
+    rating = Column(Float, nullable=True)
+    review_count = Column(Integer, nullable=True)
+    relevance_score = Column(Float, nullable=True)
+
+
+class CompetitorPriceHistory(Base):
+    __tablename__ = "competitor_price_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(String(50), ForeignKey("products.id"), index=True)
+    competitor_name = Column(String, index=True)
+    competitor_price = Column(Float)
+    currency = Column(String, default="USD")
+    last_checked = Column(DateTime, default=datetime.utcnow)
+    data_source = Column(String(50), default="mock_fallback", nullable=True)
+    rating = Column(Float, nullable=True)
+    review_count = Column(Integer, nullable=True)
+    relevance_score = Column(Float, nullable=True)
+
+
+class CompetitorAlert(Base):
+    __tablename__ = "competitor_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(String(50), ForeignKey("products.id"), index=True)
+    competitor_name = Column(String, index=True)
+    event_type = Column(String, index=True)
+    previous_price = Column(Float, nullable=True)
+    current_price = Column(Float)
+    change_amount = Column(Float, nullable=True)
+    change_percent = Column(Float, nullable=True)
+    severity = Column(String)
+    message = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    is_acknowledged = Column(Boolean, default=False)
+    data_source = Column(String(50), default="mock_fallback", nullable=True)
+
+
+class CompetitorMonitoringRun(Base):
+    __tablename__ = "monitoring_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    status = Column(String, index=True)
+    source = Column(String)
+    products_checked = Column(Integer, default=0)
+    raw_products = Column(Integer, default=0)
+    normalized_products = Column(Integer, default=0)
+    relevant_competitors = Column(Integer, default=0)
+    price_updates = Column(Integer, default=0)
+    alerts_created = Column(Integer, default=0)
+    api_requests = Column(Integer, default=0)
+    fallback_used = Column(Boolean, default=False)
+    error_message = Column(String, nullable=True)
+    primary_provider = Column(String(50), nullable=True)
+    successful_provider = Column(String(50), nullable=True)
+    prices_api_requests = Column(Integer, default=0)
+    openweb_ninja_requests = Column(Integer, default=0)
+
+
 Base.metadata.create_all(bind=engine)
+
+
+def run_schema_migrations():
+    from sqlalchemy import text, inspect
+    inspector = inspect(engine)
+    
+    alterations = [
+        ("competitor_prices", "data_source", "VARCHAR(50) DEFAULT 'mock_fallback'"),
+        ("competitor_prices", "rating", "DOUBLE PRECISION"),
+        ("competitor_prices", "review_count", "INTEGER"),
+        ("competitor_prices", "relevance_score", "DOUBLE PRECISION"),
+        ("competitor_price_history", "data_source", "VARCHAR(50) DEFAULT 'mock_fallback'"),
+        ("competitor_price_history", "rating", "DOUBLE PRECISION"),
+        ("competitor_price_history", "review_count", "INTEGER"),
+        ("competitor_price_history", "relevance_score", "DOUBLE PRECISION"),
+        ("competitor_alerts", "data_source", "VARCHAR(50) DEFAULT 'mock_fallback'"),
+        ("products", "last_competitor_scan", "TIMESTAMP"),
+        ("products", "next_competitor_scan", "TIMESTAMP"),
+        ("products", "monitoring_priority", "VARCHAR(20) DEFAULT 'MEDIUM'"),
+        ("monitoring_runs", "primary_provider", "VARCHAR(50)"),
+        ("monitoring_runs", "successful_provider", "VARCHAR(50)"),
+        ("monitoring_runs", "prices_api_requests", "INTEGER DEFAULT 0"),
+        ("monitoring_runs", "openweb_ninja_requests", "INTEGER DEFAULT 0"),
+    ]
+    
+    is_sqlite = "sqlite" in str(engine.url)
+    
+    with engine.begin() as conn:
+        for table, col, col_type in alterations:
+            try:
+                columns = [c["name"] for c in inspector.get_columns(table)]
+                if col not in columns:
+                    type_str = "FLOAT" if "DOUBLE PRECISION" in col_type and is_sqlite else col_type
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {type_str}"))
+                    print(f"Migration: Added column '{col}' to table '{table}'")
+            except Exception as e:
+                print(f"Migration warning (table {table}, column {col}): {e}")
+                
+        # Index creation migrations
+        indices_to_create = [
+            ("idx_products_next_scan", "products", "next_competitor_scan"),
+            ("idx_products_priority", "products", "monitoring_priority"),
+            ("idx_alerts_created_at", "competitor_alerts", "created_at"),
+            ("idx_history_last_checked", "competitor_price_history", "last_checked"),
+        ]
+        for idx_name, table, col in indices_to_create:
+            try:
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({col})"))
+                print(f"Migration: Created index '{idx_name}' on '{table}({col})'")
+            except Exception as e:
+                try:
+                    conn.execute(text(f"CREATE INDEX {idx_name} ON {table} ({col})"))
+                except Exception as inner_e:
+                    print(f"Migration warning (index {idx_name}): {inner_e}")
+
+
+run_schema_migrations()
 
 INITIAL_PRODUCTS = [
     {"id": "elec_headphones", "name": "Wireless Headphones", "category": "Audio", "current_price": 1999.0, "cost_price": 1299.0, "stock": 85},
@@ -243,6 +374,60 @@ def seed_initial_data(db: Session):
     db.commit()
 
 
+def seed_competitor_data(db: Session):
+    # Retrieve all products
+    products = db.query(Product).all()
+    if not products:
+        return
+        
+    from services.competitor_monitoring_service import CompetitorMonitoringService
+    service = CompetitorMonitoringService()
+    
+    # We populate latest competitor price and some history entries for each product
+    for product in products:
+        # Check if we already have competitor prices for this product
+        existing = db.query(CompetitorPrice).filter(CompetitorPrice.product_id == product.id).first()
+        if not existing:
+            # Let's seed mock prices
+            mock_data = service.get_mock_data(product.id, db)
+            for item in mock_data:
+                # Add latest price
+                comp_price_rec = CompetitorPrice(
+                    product_id=item["product_id"],
+                    competitor_name=item["competitor_name"],
+                    competitor_product_name=item["competitor_product_name"],
+                    competitor_url=item["competitor_url"],
+                    competitor_price=item["competitor_price"],
+                    currency=item["currency"],
+                    availability=item["availability"],
+                    last_checked=datetime.utcnow() - timedelta(days=2),
+                    previous_price=round(item["competitor_price"] * 0.98, 2),
+                    price_change=round(item["competitor_price"] - round(item["competitor_price"] * 0.98, 2), 2),
+                    price_change_percent=2.0
+                )
+                db.add(comp_price_rec)
+                
+                # Add price history
+                history_rec1 = CompetitorPriceHistory(
+                    product_id=item["product_id"],
+                    competitor_name=item["competitor_name"],
+                    competitor_price=round(item["competitor_price"] * 0.98, 2),
+                    currency=item["currency"],
+                    last_checked=datetime.utcnow() - timedelta(days=5)
+                )
+                history_rec2 = CompetitorPriceHistory(
+                    product_id=item["product_id"],
+                    competitor_name=item["competitor_name"],
+                    competitor_price=item["competitor_price"],
+                    currency=item["currency"],
+                    last_checked=datetime.utcnow() - timedelta(days=2)
+                )
+                db.add(history_rec1)
+                db.add(history_rec2)
+                
+    db.commit()
+
+
 class RegisterRequest(BaseModel):
     name: str
     email: str
@@ -345,8 +530,27 @@ def initialize_database():
     db = SessionLocal()
     try:
         seed_initial_data(db)
+        try:
+            seed_competitor_data(db)
+        except Exception as ce:
+            print(f"Error seeding competitor data: {ce}")
     finally:
         db.close()
+
+    try:
+        from services.scheduler import start_scheduler
+        start_scheduler()
+    except Exception as se:
+        print(f"Error starting scheduler: {se}")
+
+
+@app.on_event("shutdown")
+def shutdown_scheduler():
+    try:
+        from services.scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception as e:
+        print(f"Error stopping scheduler: {e}")
 
 
 @app.get("/")

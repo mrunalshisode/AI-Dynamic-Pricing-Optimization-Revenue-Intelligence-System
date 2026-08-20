@@ -3,23 +3,13 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+from dotenv import load_dotenv
+
 # Locate the backend directory to read the .env file
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
-def load_env_file():
-    env_path = BACKEND_DIR / ".env"
-    if not env_path.exists():
-        return
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
 # Ensure environment variables are loaded
-load_env_file()
+load_dotenv(dotenv_path=BACKEND_DIR / ".env")
 
 # Read configurations
 POSTGRES_URL = os.getenv("POSTGRES_URL")

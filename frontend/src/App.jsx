@@ -11,6 +11,7 @@ import PricingManagerDashboard from "./pages/PricingManagerDashboard";
 import BusinessAnalystDashboard from "./pages/BusinessAnalystDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import SeasonalTrendReports from "./pages/SeasonalTrendReports";
+import CompetitorMonitoring from "./pages/CompetitorMonitoring";
 
 const API = "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -1073,6 +1074,7 @@ export default function App() {
       return [
         { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
         { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
@@ -1081,6 +1083,7 @@ export default function App() {
       return [
         { label: "Pricing Insights", type: "view", view: "bi_analytics" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
         { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
@@ -1358,10 +1361,10 @@ export default function App() {
       return ["admin_dashboard", "products", "ai_monitoring", "prediction_history", "seasonal_trends"].includes(view);
     }
     if (r === "pricing manager") {
-      return ["pricing_manager_dashboard", "ai_recommendation", "products", "seasonal_trends"].includes(view);
+      return ["pricing_manager_dashboard", "ai_recommendation", "products", "seasonal_trends", "competitor_monitoring"].includes(view);
     }
     if (r === "business analyst") {
-      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", "seasonal_trends"].includes(view);
+      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", "seasonal_trends", "competitor_monitoring"].includes(view);
     }
     return false;
   }
@@ -1602,6 +1605,15 @@ export default function App() {
           <AIRecommendation products={products} salesInfo={salesInfo} userRole={userRole} />
         ) : activeView === "seasonal_trends" ? (
           <SeasonalTrendReports products={products} />
+        ) : activeView === "competitor_monitoring" ? (
+          <CompetitorMonitoring
+            products={products}
+            token={token}
+            API={API}
+            setActiveView={setActiveView}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
         ) : activeView === "bi_analytics" ? (
           <AnalyticsDashboard products={products} />
         ) : activeView === "ai_monitoring" ? (

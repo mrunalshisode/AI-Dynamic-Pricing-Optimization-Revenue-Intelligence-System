@@ -278,3 +278,12 @@ backend/datasets/raw/
 
 # Model checkpoints
 *.joblibbackend/saved_models_backup/
+
+# Production Hardening Excludes
+backend/.env
+.env
+frontend/.env
+frontend/.env.*
+__pycache__/
+node_modules/
+dist/

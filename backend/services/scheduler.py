@@ -45,6 +45,24 @@ def monthly_evaluation_job():
     logger.info("Scheduler Event: Running Monthly Model Evaluation...")
     logger.info("Scheduler Event: Monthly Model Evaluation completed successfully.")
 
+def competitor_monitoring_job():
+    """
+    Scheduled job to run the competitor monitoring cycle periodically.
+    """
+    logger.info("Scheduler Event: Starting scheduled Competitor Price Monitoring cycle...")
+    from services.competitor_monitoring_service import CompetitorMonitoringService
+    from main import SessionLocal
+    
+    db_conn = SessionLocal()
+    try:
+        service = CompetitorMonitoringService()
+        results = service.run_monitoring_cycle(db_conn, force_all=False)
+        logger.info(f"Scheduler Event: Competitor Price Monitoring cycle finished. Results: {results}")
+    except Exception as e:
+        logger.error(f"Scheduler Event: Competitor Price Monitoring job failed: {e}")
+    finally:
+        db_conn.close()
+
 def start_scheduler() -> bool:
     """
     Initializes triggers, registers target jobs, and starts the background scheduler thread.
@@ -83,6 +101,26 @@ def start_scheduler() -> bool:
             name="Monthly Model Evaluation",
             replace_existing=True
         )
+        
+        # 4. Register Competitor Price Monitoring: periodic interval
+        monitoring_enabled = os.getenv("COMPETITOR_MONITORING_ENABLED", "true").lower() == "true"
+        if monitoring_enabled:
+            try:
+                interval_hours = int(os.getenv("COMPETITOR_SCAN_INTERVAL_HOURS", "6"))
+            except ValueError:
+                interval_hours = 6
+
+            scheduler.add_job(
+                competitor_monitoring_job,
+                "interval",
+                hours=interval_hours,
+                id="competitor_monitoring",
+                name="Competitor Price Monitoring",
+                replace_existing=True
+            )
+            logger.info(f"Registered Competitor Price Monitoring job to run every {interval_hours} hours.")
+        else:
+            logger.info("Competitor Price Monitoring job is disabled via COMPETITOR_MONITORING_ENABLED.")
         
         # Start background threads
         scheduler.start()

@@ -90,6 +90,23 @@ class RecommendationService:
         """
         stockcode = product_features.get("stockcode", "M")
         
+        if competitor_price is None and stockcode:
+            try:
+                from main import CompetitorPrice, SessionLocal
+                db = SessionLocal()
+                try:
+                    comp = db.query(CompetitorPrice).filter(
+                        CompetitorPrice.product_id == stockcode
+                    ).order_by(CompetitorPrice.competitor_price.asc()).first()
+                    if comp:
+                        competitor_price = comp.competitor_price
+                except Exception as db_err:
+                    logger.warning(f"Error querying competitor price in database: {db_err}")
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.warning(f"Error querying competitor price in recommendation service: {e}")
+        
         # 1. Inventory days of supply
         if stockcode:
             try:
