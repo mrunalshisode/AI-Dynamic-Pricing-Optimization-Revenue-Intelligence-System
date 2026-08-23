@@ -15,6 +15,8 @@ import CompetitorMonitoring from "./pages/CompetitorMonitoring";
 import PricingComparisonReports from "./pages/PricingComparisonReports";
 import MarketIntelligence from "./pages/MarketIntelligence";
 import ProfitabilityAnalytics from "./pages/ProfitabilityAnalytics";
+import PricingStrategyRecommendations from "./pages/PricingStrategyRecommendations";
+
 
 const API = "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -300,7 +302,7 @@ export default function App() {
         </svg>
       );
     }
-    if (l.includes("optimizer") || l.includes("forecast") || l.includes("insights") || l.includes("outlook") || l.includes("planner") || l.includes("projections") || l.includes("recommend")) {
+    if (l.includes("strategy") || l.includes("optimizer") || l.includes("forecast") || l.includes("insights") || l.includes("outlook") || l.includes("planner") || l.includes("projections") || l.includes("recommend")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="20" x2="18" y2="10"/>
@@ -1067,6 +1069,7 @@ export default function App() {
         { label: "Admin Dashboard", type: "view", view: "admin_dashboard" },
         { label: "User & Role Management", type: "view", view: "admin_dashboard" },
         { label: "Products Catalog", type: "view", view: "products" },
+        { label: "Pricing Strategy", type: "view", view: "pricing_strategy" },
         { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
         { label: "Market Intelligence", type: "view", view: "market_intelligence" },
         { label: "Profitability", type: "view", view: "profitability" },
@@ -1080,6 +1083,7 @@ export default function App() {
       return [
         { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Pricing Strategy", type: "view", view: "pricing_strategy" },
         { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
         { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
         { label: "Market Intelligence", type: "view", view: "market_intelligence" },
@@ -1092,6 +1096,7 @@ export default function App() {
       return [
         { label: "Pricing Insights", type: "view", view: "bi_analytics" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
+        { label: "Pricing Strategy", type: "view", view: "pricing_strategy" },
         { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
         { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
         { label: "Market Intelligence", type: "view", view: "market_intelligence" },
@@ -1372,21 +1377,21 @@ export default function App() {
     if (r === "admin") {
       return [
         "admin_dashboard", "products", "ai_monitoring", "prediction_history", 
-        "seasonal_trends", "pricing_comparison", "market_intelligence", "profitability"
+        "seasonal_trends", "pricing_comparison", "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     if (r === "pricing manager") {
       return [
         "pricing_manager_dashboard", "ai_recommendation", "products", 
         "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
-        "market_intelligence", "profitability"
+        "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     if (r === "business analyst") {
       return [
         "business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", 
         "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
-        "market_intelligence", "profitability"
+        "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     return false;
@@ -1626,6 +1631,14 @@ export default function App() {
           <AIDashboard products={products} salesInfo={salesInfo} />
         ) : activeView === "ai_recommendation" ? (
           <AIRecommendation products={products} salesInfo={salesInfo} userRole={userRole} />
+        ) : activeView === "pricing_strategy" ? (
+          <PricingStrategyRecommendations
+            products={products}
+            token={token}
+            API={API}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
         ) : activeView === "seasonal_trends" ? (
           <SeasonalTrendReports products={products} />
         ) : activeView === "competitor_monitoring" ? (

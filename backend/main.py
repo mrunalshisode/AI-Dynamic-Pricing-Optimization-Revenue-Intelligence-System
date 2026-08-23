@@ -66,6 +66,11 @@ app.include_router(market_intelligence_router)
 from routes.profitability import router as profitability_router
 app.include_router(profitability_router)
 
+# Register Pricing Strategy router
+from routes.pricing_strategy import router as pricing_strategy_router
+app.include_router(pricing_strategy_router)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
