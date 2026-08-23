@@ -12,6 +12,9 @@ import BusinessAnalystDashboard from "./pages/BusinessAnalystDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import SeasonalTrendReports from "./pages/SeasonalTrendReports";
 import CompetitorMonitoring from "./pages/CompetitorMonitoring";
+import PricingComparisonReports from "./pages/PricingComparisonReports";
+import MarketIntelligence from "./pages/MarketIntelligence";
+import ProfitabilityAnalytics from "./pages/ProfitabilityAnalytics";
 
 const API = "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -1064,6 +1067,9 @@ export default function App() {
         { label: "Admin Dashboard", type: "view", view: "admin_dashboard" },
         { label: "User & Role Management", type: "view", view: "admin_dashboard" },
         { label: "Products Catalog", type: "view", view: "products" },
+        { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
+        { label: "Market Intelligence", type: "view", view: "market_intelligence" },
+        { label: "Profitability", type: "view", view: "profitability" },
         { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "System/Database Health", type: "view", view: "admin_dashboard" },
         { label: "ML Model Status", type: "view", view: "admin_dashboard" },
@@ -1075,6 +1081,9 @@ export default function App() {
         { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
         { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
+        { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
+        { label: "Market Intelligence", type: "view", view: "market_intelligence" },
+        { label: "Profitability", type: "view", view: "profitability" },
         { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
@@ -1084,6 +1093,9 @@ export default function App() {
         { label: "Pricing Insights", type: "view", view: "bi_analytics" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
         { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
+        { label: "Pricing Comparison", type: "view", view: "pricing_comparison" },
+        { label: "Market Intelligence", type: "view", view: "market_intelligence" },
+        { label: "Profitability", type: "view", view: "profitability" },
         { label: "Seasonal Trend Reports", type: "view", view: "seasonal_trends" },
         { label: "Products Catalog", type: "view", view: "products" },
       ];
@@ -1358,13 +1370,24 @@ export default function App() {
     const r = getNormalizedRole(role);
     if (view === "dashboard") return true;
     if (r === "admin") {
-      return ["admin_dashboard", "products", "ai_monitoring", "prediction_history", "seasonal_trends"].includes(view);
+      return [
+        "admin_dashboard", "products", "ai_monitoring", "prediction_history", 
+        "seasonal_trends", "pricing_comparison", "market_intelligence", "profitability"
+      ].includes(view);
     }
     if (r === "pricing manager") {
-      return ["pricing_manager_dashboard", "ai_recommendation", "products", "seasonal_trends", "competitor_monitoring"].includes(view);
+      return [
+        "pricing_manager_dashboard", "ai_recommendation", "products", 
+        "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
+        "market_intelligence", "profitability"
+      ].includes(view);
     }
     if (r === "business analyst") {
-      return ["business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", "seasonal_trends", "competitor_monitoring"].includes(view);
+      return [
+        "business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", 
+        "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
+        "market_intelligence", "profitability"
+      ].includes(view);
     }
     return false;
   }
@@ -1611,6 +1634,30 @@ export default function App() {
             token={token}
             API={API}
             setActiveView={setActiveView}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
+        ) : activeView === "pricing_comparison" ? (
+          <PricingComparisonReports
+            products={products}
+            token={token}
+            API={API}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
+        ) : activeView === "market_intelligence" ? (
+          <MarketIntelligence
+            products={products}
+            token={token}
+            API={API}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
+        ) : activeView === "profitability" ? (
+          <ProfitabilityAnalytics
+            products={products}
+            token={token}
+            API={API}
             showToast={showToast}
             formatCurrency={formatCurrency}
           />

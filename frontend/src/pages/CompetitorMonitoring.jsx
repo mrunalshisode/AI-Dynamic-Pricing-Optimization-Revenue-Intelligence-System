@@ -30,6 +30,34 @@ export default function CompetitorMonitoring({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
 
+  // States and effects for toggling historical competitors on the chart
+  const [selectedChartCompetitors, setSelectedChartCompetitors] = useState([]);
+
+  useEffect(() => {
+    if (historyData && historyData.length > 0) {
+      const uniqueComps = Array.from(new Set(historyData.map((item) => item.competitor_name)));
+      // Sort competitors by count of historical records (most relevant first)
+      const counts = {};
+      historyData.forEach((item) => {
+        counts[item.competitor_name] = (counts[item.competitor_name] || 0) + 1;
+      });
+      const sorted = uniqueComps.sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+      setSelectedChartCompetitors(sorted.slice(0, 5));
+    } else {
+      setSelectedChartCompetitors([]);
+    }
+  }, [historyData]);
+
+  const toggleCompetitorLine = (compName) => {
+    setSelectedChartCompetitors((prev) => {
+      if (prev.includes(compName)) {
+        return prev.filter((c) => c !== compName);
+      } else {
+        return [...prev, compName];
+      }
+    });
+  };
+
   // Scheduler & API usage budget states
   const [schedulerStats, setSchedulerStats] = useState(null);
   const [apiUsage, setApiUsage] = useState(null);
@@ -953,7 +981,7 @@ export default function CompetitorMonitoring({
       {/* 6. Comparison Section & Price history */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Product Price Comparison Bars */}
-        <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left flex flex-col justify-between">
+        <div className="lg:col-span-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left">
           <div className="space-y-4">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SKU Comparison</span>
@@ -976,16 +1004,15 @@ export default function CompetitorMonitoring({
                   No competitors loaded for this product.
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1.5">
                   {selectedPrices.map((c) => {
                     const priceDiff = (selectedProd?.current_price ?? 0) - c.competitor_price;
-                    const percentDiff = (priceDiff / c.competitor_price) * 105; // Note: exact gap percent calculation
                     
                     return (
                       <div key={c.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/50 dark:border-slate-800">
-                        <div className="text-xs">
-                          <strong className="font-bold text-slate-800 dark:text-slate-200 block">{c.competitor_name}</strong>
-                          <span className="text-[9px] text-slate-400">{c.competitor_product_name}</span>
+                        <div className="text-xs max-w-[65%]">
+                          <strong className="font-bold text-slate-800 dark:text-slate-200 block truncate">{c.competitor_name}</strong>
+                          <span className="text-[9px] text-slate-400 block truncate" title={c.competitor_product_name}>{c.competitor_product_name}</span>
                         </div>
                         <div className="text-right">
                           <strong className="text-xs font-mono text-slate-800 dark:text-slate-100 block">
@@ -1006,13 +1033,46 @@ export default function CompetitorMonitoring({
         </div>
 
         {/* Right: Recharts Line Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left space-y-4">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Historical Trend</span>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Competitor Price History</h3>
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm text-left space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Historical Trend</span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Competitor Price History</h3>
+              </div>
+              <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                Showing {selectedChartCompetitors.length} lines
+              </span>
+            </div>
+
+            {/* Custom interactive legend selector pills */}
+            {historyData && historyData.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 max-h-[88px] overflow-y-auto pb-3 border-b border-slate-100 dark:border-slate-800 pr-1">
+                {Array.from(new Set(historyData.map((item) => item.competitor_name))).map((compName, idx) => {
+                  const isSelected = selectedChartCompetitors.includes(compName);
+                  const colors = ["#8b5cf6", "#10b981", "#f59e0b", "#3b82f6", "#ec4899", "#06b6d4"];
+                  const color = colors[idx % colors.length];
+                  return (
+                    <button
+                      key={compName}
+                      onClick={() => toggleCompetitorLine(compName)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        isSelected 
+                          ? "text-white" 
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                      style={isSelected ? { backgroundColor: color } : {}}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : ""}`} style={!isSelected ? { backgroundColor: color } : {}}></span>
+                      {compName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="h-72 w-full">
+          <div className="h-[320px] w-full mt-2">
             {loadingHistory ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-500">
                 <div className="w-8 h-8 border-3 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1026,39 +1086,38 @@ export default function CompetitorMonitoring({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={getChartData()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-slate-800" />
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} dy={8} />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} dy={8} />
+                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
                   <ChartTooltip
                     contentStyle={{
                       backgroundColor: "rgba(30, 41, 59, 0.95)",
                       border: "none",
                       borderRadius: "12px",
                       color: "#fff",
-                      fontSize: "12px",
+                      fontSize: "11px",
                     }}
+                    formatter={(val, name) => [formatCurrency(val), name]}
+                    labelFormatter={(label) => `Time: ${label}`}
                   />
-                  <Legend
-                    verticalAlign="top"
-                    height={36}
-                    iconType="circle"
-                    formatter={(value) => <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{value}</span>}
-                  />
-                  {getChartLines().map((compName, idx) => {
-                    // Pick colors dynamically
-                    const colors = ["#8b5cf6", "#10b981", "#f59e0b", "#3b82f6"];
-                    const color = colors[idx % colors.length];
-                    return (
-                      <Line
-                        key={compName}
-                        type="monotone"
-                        dataKey={compName}
-                        stroke={color}
-                        strokeWidth={2.5}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    );
-                  })}
+                  {getChartLines()
+                    .filter((compName) => selectedChartCompetitors.includes(compName))
+                    .map((compName) => {
+                      const allComps = Array.from(new Set(historyData.map((item) => item.competitor_name)));
+                      const idx = allComps.indexOf(compName);
+                      const colors = ["#8b5cf6", "#10b981", "#f59e0b", "#3b82f6", "#ec4899", "#06b6d4"];
+                      const color = colors[idx % colors.length];
+                      return (
+                        <Line
+                          key={compName}
+                          type="monotone"
+                          dataKey={compName}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ r: 2.5 }}
+                          activeDot={{ r: 4.5 }}
+                        />
+                      );
+                    })}
                 </LineChart>
               </ResponsiveContainer>
             )}
