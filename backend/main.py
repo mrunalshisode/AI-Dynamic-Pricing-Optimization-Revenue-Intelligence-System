@@ -54,6 +54,18 @@ app.include_router(seasonal_trends_router)
 from routes.competitor_monitoring import router as competitor_monitoring_router
 app.include_router(competitor_monitoring_router)
 
+# Register Pricing Comparison router
+from routes.pricing_comparison import router as pricing_comparison_router
+app.include_router(pricing_comparison_router)
+
+# Register Market Intelligence router
+from routes.market_intelligence import router as market_intelligence_router
+app.include_router(market_intelligence_router)
+
+# Register Profitability Analytics router
+from routes.profitability import router as profitability_router
+app.include_router(profitability_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
@@ -112,11 +124,11 @@ class CompetitorPrice(Base):
     competitor_price = Column(Float)
     currency = Column(String, default="USD")
     availability = Column(String, default="In Stock")
-    last_checked = Column(DateTime, default=datetime.utcnow)
+    last_checked = Column(DateTime, default=datetime.utcnow, index=True)
     previous_price = Column(Float, nullable=True)
     price_change = Column(Float, nullable=True)
     price_change_percent = Column(Float, nullable=True)
-    data_source = Column(String(50), default="mock_fallback", nullable=True)
+    data_source = Column(String(50), default="mock_fallback", nullable=True, index=True)
     rating = Column(Float, nullable=True)
     review_count = Column(Integer, nullable=True)
     relevance_score = Column(Float, nullable=True)
@@ -130,8 +142,8 @@ class CompetitorPriceHistory(Base):
     competitor_name = Column(String, index=True)
     competitor_price = Column(Float)
     currency = Column(String, default="USD")
-    last_checked = Column(DateTime, default=datetime.utcnow)
-    data_source = Column(String(50), default="mock_fallback", nullable=True)
+    last_checked = Column(DateTime, default=datetime.utcnow, index=True)
+    data_source = Column(String(50), default="mock_fallback", nullable=True, index=True)
     rating = Column(Float, nullable=True)
     review_count = Column(Integer, nullable=True)
     relevance_score = Column(Float, nullable=True)
@@ -223,6 +235,9 @@ def run_schema_migrations():
             ("idx_products_priority", "products", "monitoring_priority"),
             ("idx_alerts_created_at", "competitor_alerts", "created_at"),
             ("idx_history_last_checked", "competitor_price_history", "last_checked"),
+            ("idx_competitor_prices_data_source", "competitor_prices", "data_source"),
+            ("idx_competitor_prices_last_checked", "competitor_prices", "last_checked"),
+            ("idx_competitor_history_data_source", "competitor_price_history", "data_source"),
         ]
         for idx_name, table, col in indices_to_create:
             try:

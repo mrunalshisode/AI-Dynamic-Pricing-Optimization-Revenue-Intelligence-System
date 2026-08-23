@@ -21,6 +21,9 @@ class ForecastService:
     A reusable service designed to load the pre-trained Prophet demand forecasting model
     and generate demand projections across varying horizons.
     """
+    _forecast_cache = {}
+    _model = None
+
     def __init__(self, model_path: Path = None):
         if model_path is None:
             model_path = SAVED_MODELS_DIR / "demand_forecast_prophet.pkl"
@@ -28,19 +31,24 @@ class ForecastService:
         self.model = self._load_model()
         
     def _load_model(self) -> Any:
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Prophet demand forecasting model not found at: {self.model_path}")
-        logger.info(f"Loading Prophet demand model from: {self.model_path}")
-        with open(self.model_path, "rb") as f:
-            return pickle.load(f)
+        if ForecastService._model is None:
+            if not self.model_path.exists():
+                raise FileNotFoundError(f"Prophet demand forecasting model not found at: {self.model_path}")
+            logger.info(f"Loading Prophet demand model from: {self.model_path}")
+            with open(self.model_path, "rb") as f:
+                ForecastService._model = pickle.load(f)
+        return ForecastService._model
             
     def generate_forecast(self, periods: int) -> pd.DataFrame:
         """
         Generates demand predictions for the specified future day count.
         """
-        future = self.model.make_future_dataframe(periods=periods)
-        forecast = self.model.predict(future)
-        return forecast
+        if periods not in ForecastService._forecast_cache:
+            logger.info(f"Generating new Prophet forecast for {periods} periods...")
+            future = self.model.make_future_dataframe(periods=periods)
+            forecast = self.model.predict(future)
+            ForecastService._forecast_cache[periods] = forecast
+        return ForecastService._forecast_cache[periods]
         
     def generate_multi_horizon_forecasts(self) -> Dict[str, Any]:
         """

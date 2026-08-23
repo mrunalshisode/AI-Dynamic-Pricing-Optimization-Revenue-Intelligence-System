@@ -82,7 +82,8 @@ class RecommendationService:
         historical_sales: float,
         historical_revenue: float,
         cost_price: float = None,
-        competitor_price: float = None
+        competitor_price: float = None,
+        db: Session = None
     ) -> Dict[str, Any]:
         """
         Evaluates candidate prices to maximize expected profit under margin, inventory, 
@@ -92,10 +93,16 @@ class RecommendationService:
         
         if competitor_price is None and stockcode:
             try:
-                from main import CompetitorPrice, SessionLocal
-                db = SessionLocal()
+                from main import CompetitorPrice
+                close_db = False
+                if db is None:
+                    from main import SessionLocal
+                    db_session = SessionLocal()
+                    close_db = True
+                else:
+                    db_session = db
                 try:
-                    comp = db.query(CompetitorPrice).filter(
+                    comp = db_session.query(CompetitorPrice).filter(
                         CompetitorPrice.product_id == stockcode
                     ).order_by(CompetitorPrice.competitor_price.asc()).first()
                     if comp:
@@ -103,19 +110,26 @@ class RecommendationService:
                 except Exception as db_err:
                     logger.warning(f"Error querying competitor price in database: {db_err}")
                 finally:
-                    db.close()
+                    if close_db:
+                        db_session.close()
             except Exception as e:
                 logger.warning(f"Error querying competitor price in recommendation service: {e}")
         
         # 1. Inventory days of supply
         if stockcode:
             try:
-                from main import SessionLocal, Product, SalesRecord
-                db_conn = SessionLocal()
+                from main import Product, SalesRecord
+                close_db = False
+                if db is None:
+                    from main import SessionLocal
+                    db_session = SessionLocal()
+                    close_db = True
+                else:
+                    db_session = db
                 try:
-                    product = db_conn.query(Product).filter(Product.id == stockcode).first()
+                    product = db_session.query(Product).filter(Product.id == stockcode).first()
                     if product:
-                        sales_records = db_conn.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
+                        sales_records = db_session.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
                         if sales_records:
                             historical_sales = float(sum(s.units_sold for s in sales_records))
                             historical_revenue = float(sum(s.revenue for s in sales_records))
@@ -123,7 +137,8 @@ class RecommendationService:
                             historical_sales = 0.0
                             historical_revenue = 0.0
                 finally:
-                    db_conn.close()
+                    if close_db:
+                        db_session.close()
             except Exception as e:
                 logger.warning(f"Error querying database for historical sales in recommendation service: {e}")
 
@@ -170,15 +185,8 @@ class RecommendationService:
         cost_price = cost_price if cost_price is not None else (current_price * 0.7)
         min_allowed_price = cost_price * 1.05  # strictly cost + 5% minimum margin
 
-        # 5. Fetch actual confidence score from ForecastService if available
-        confidence_val = None
-        if self.forecast_service:
-            try:
-                forecasts = self.forecast_service.generate_multi_horizon_forecasts()
-                confidence_val = forecasts.get("90_days", {}).get("confidence_score_percent")
-            except Exception as e:
-                logger.warning(f"Failed to fetch actual forecast confidence: {e}")
-        confidence_pct = confidence_val if confidence_val is not None else 80.0
+        # 5. Fetch actual confidence score (default to 80.0 to avoid executing full Prophet pipeline on single request)
+        confidence_pct = 80.0
 
         # 4. Baseline demand (historical sales or integrated forecasting service)
         short_term_demand = None

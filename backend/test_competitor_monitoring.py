@@ -31,12 +31,13 @@ class TestCompetitorMonitoring(unittest.TestCase):
         self.db.rollback()
         
         # Clean up any leftover temp test records
-        from main import Product, CompetitorPrice, CompetitorPriceHistory, CompetitorAlert
+        from main import Product, CompetitorPrice, CompetitorPriceHistory, CompetitorAlert, CompetitorMonitoringRun
         temp_ids = ["temp_alert_p", "temp_error_p", "temp_p1", "temp_p2", "temp_p3", "temp_fallback_p", "temp_both_fail_p"]
-        self.db.query(CompetitorAlert).filter((CompetitorAlert.product_id.in_(temp_ids)) | (CompetitorAlert.data_source == "pricesapi")).delete()
-        self.db.query(CompetitorPrice).filter((CompetitorPrice.product_id.in_(temp_ids)) | (CompetitorPrice.data_source == "pricesapi")).delete()
-        self.db.query(CompetitorPriceHistory).filter((CompetitorPriceHistory.product_id.in_(temp_ids)) | (CompetitorPriceHistory.data_source == "pricesapi")).delete()
+        self.db.query(CompetitorAlert).filter(CompetitorAlert.product_id.in_(temp_ids)).delete()
+        self.db.query(CompetitorPrice).filter(CompetitorPrice.product_id.in_(temp_ids)).delete()
+        self.db.query(CompetitorPriceHistory).filter(CompetitorPriceHistory.product_id.in_(temp_ids)).delete()
         self.db.query(Product).filter(Product.id.in_(temp_ids)).delete()
+        self.db.query(CompetitorMonitoringRun).delete()
         self.db.commit()
         
         self.orig_getenv = os.getenv
@@ -802,7 +803,7 @@ class TestCompetitorMonitoring(unittest.TestCase):
         
         orig_getenv = os.getenv
         def mock_getenv(key, default=None):
-            if key in ["OPENWEBNINJA_API_KEY", "OPENWEB_NINJA_API_KEY"]:
+            if key in ["OPENWEBNINJA_API_KEY", "OPENWEB_NINJA_API_KEY", "PRICES_API_KEY"]:
                 return ""
             return orig_getenv(key, default)
             
@@ -810,7 +811,7 @@ class TestCompetitorMonitoring(unittest.TestCase):
         with patch("os.getenv", side_effect=mock_getenv):
             results = self.service.run_monitoring_cycle(self.db, force_all=True)
             self.assertGreaterEqual(results["competitors_checked"], 1)
-            recs = self.db.query(CompetitorPrice).all()
+            recs = self.db.query(CompetitorPrice).filter(CompetitorPrice.product_id.like("temp_%")).all()
             for r in recs:
                 self.assertIn(r.data_source, ["mock_fallback", "openwebninja"])
 

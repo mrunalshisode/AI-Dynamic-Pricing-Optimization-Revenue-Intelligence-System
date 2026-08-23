@@ -43,17 +43,28 @@ class SeasonalTrendService:
     A service that performs product-specific seasonal demand, pricing, and inventory analysis
     for individual products using the project's historical transaction splits.
     """
+    _product_monthly_cache = None
+    _trend_classification = None
+
     def __init__(self):
         self.csv_path = BASE_DIR / "datasets" / "training" / "lightgbm_price_train.csv"
-        self.trend_classification = self._load_trend_classification()
         self.seasonal_indices = {
             1: 0.82, 2: 0.85, 3: 0.91, 4: 0.96, 5: 1.02, 6: 1.14,
             7: 1.21, 8: 1.16, 9: 1.01, 10: 1.04, 11: 1.08, 12: 1.25
         }
         
-        # Pre-cache product-specific monthly sales quantities to make sub-millisecond API lookups
-        self.product_monthly_cache = {}
-        self._pre_aggregate_sales_data()
+        if SeasonalTrendService._product_monthly_cache is None:
+            self.product_monthly_cache = {}
+            self._pre_aggregate_sales_data()
+            SeasonalTrendService._product_monthly_cache = self.product_monthly_cache
+        else:
+            self.product_monthly_cache = SeasonalTrendService._product_monthly_cache
+
+        if SeasonalTrendService._trend_classification is None:
+            self.trend_classification = self._load_trend_classification()
+            SeasonalTrendService._trend_classification = self.trend_classification
+        else:
+            self.trend_classification = SeasonalTrendService._trend_classification
 
     def _pre_aggregate_sales_data(self):
         """
@@ -103,20 +114,27 @@ class SeasonalTrendService:
                 logger.warning(f"Failed to read trend classification report: {e}")
         return "Stable"
 
-    def get_seasonal_trends(self, product_id: str) -> Dict[str, Any]:
+    def get_seasonal_trends(self, product_id: str, db: Session = None, preloaded_sales: List = None) -> Dict[str, Any]:
         """
         Returns product-specific seasonal demand patterns, index curves, and actionable recommendations.
         """
         from main import SessionLocal, Product, SalesRecord
         
-        db = SessionLocal()
+        close_db = False
+        if db is None:
+            db = SessionLocal()
+            close_db = True
+            
         try:
             product = db.query(Product).filter(Product.id == product_id).first()
             if not product:
                 raise ValueError(f"Product {product_id} not found in database.")
 
             # Get historical sales records for baseline demand
-            sales_records = db.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
+            if preloaded_sales is not None:
+                sales_records = preloaded_sales
+            else:
+                sales_records = db.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
             hist_sales = sum(r.units_sold for r in sales_records) if sales_records else 0.0
             
             month_names = {
@@ -286,4 +304,5 @@ class SeasonalTrendService:
             }
 
         finally:
-            db.close()
+            if close_db:
+                db.close()

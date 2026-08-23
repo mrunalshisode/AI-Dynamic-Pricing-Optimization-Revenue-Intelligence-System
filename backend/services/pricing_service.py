@@ -21,6 +21,8 @@ class PricingService:
     A reusable service designed to load the pre-trained LightGBM price prediction model
     and execute pricing predictions for single feature dictionaries or batches.
     """
+    _model = None
+
     def __init__(self, model_path: Path = None):
         if model_path is None:
             model_path = SAVED_MODELS_DIR / "price_prediction_lightgbm.joblib"
@@ -41,10 +43,12 @@ class PricingService:
             logger.warning(f"Features dataset not found at {features_csv_path}")
         
     def _load_model(self) -> Any:
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"LightGBM price prediction model not found at: {self.model_path}")
-        logger.info(f"Loading LightGBM price model from: {self.model_path}")
-        return joblib.load(self.model_path)
+        if PricingService._model is None:
+            if not self.model_path.exists():
+                raise FileNotFoundError(f"LightGBM price prediction model not found at: {self.model_path}")
+            logger.info(f"Loading LightGBM price model from: {self.model_path}")
+            PricingService._model = joblib.load(self.model_path)
+        return PricingService._model
         
     def get_features_for_product(self, stockcode: str) -> Dict[str, Any]:
         """

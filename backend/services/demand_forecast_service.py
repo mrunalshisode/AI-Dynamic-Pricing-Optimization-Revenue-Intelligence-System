@@ -28,6 +28,10 @@ class DemandForecastService:
     A unified forecasting service that implements true multi-horizon demand forecasting
     using Prophet and LightGBM models, selecting the best model based on metrics and horizon.
     """
+    _lightgbm_model = None
+    _metrics = None
+    _forecast_cache = {}
+
     def __init__(
         self,
         pricing_service: PricingService = None,
@@ -36,8 +40,14 @@ class DemandForecastService:
         self.pricing_service = pricing_service or PricingService()
         self.forecast_service = forecast_service or ForecastService()
         self.lightgbm_model_path = SAVED_MODELS_DIR / "demand_prediction_lightgbm.joblib"
-        self.lightgbm_model = self._load_lightgbm_model()
-        self.metrics = self._load_model_metrics()
+        
+        if DemandForecastService._lightgbm_model is None:
+            DemandForecastService._lightgbm_model = self._load_lightgbm_model()
+        self.lightgbm_model = DemandForecastService._lightgbm_model
+        
+        if DemandForecastService._metrics is None:
+            DemandForecastService._metrics = self._load_model_metrics()
+        self.metrics = DemandForecastService._metrics
         
         # Load seasonal trend service
         try:
@@ -99,19 +109,41 @@ class DemandForecastService:
 
         return metrics
 
-    def get_forecast_for_product(self, product_id: str, competitor_price: float = None) -> Dict[str, Any]:
+    def get_forecast_for_product(
+        self,
+        product_id: str,
+        competitor_price: float = None,
+        db: Session = None,
+        preloaded_sales: List = None
+    ) -> Dict[str, Any]:
         """
         Generates product-specific demand forecasts across Short, Mid, and Long horizons.
         """
+        import time
+        cache_key = (product_id, competitor_price)
+        now_ts = time.time()
+        if cache_key in DemandForecastService._forecast_cache:
+            ts, cached_res = DemandForecastService._forecast_cache[cache_key]
+            if now_ts - ts < 15:  # 15 seconds cache duration
+                return cached_res
+
         from main import SessionLocal, Product, SalesRecord
-        db = SessionLocal()
+        
+        close_db = False
+        if db is None:
+            db = SessionLocal()
+            close_db = True
+            
         try:
             product = db.query(Product).filter(Product.id == product_id).first()
             if not product:
                 raise ValueError(f"Product {product_id} not found in database.")
 
             # Fetch database sales history
-            sales_records = db.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
+            if preloaded_sales is not None:
+                sales_records = preloaded_sales
+            else:
+                sales_records = db.query(SalesRecord).filter(SalesRecord.product_name == product.name).all()
             hist_sales = sum(s.units_sold for s in sales_records) if sales_records else 0.0
             
             product_info = {
@@ -133,7 +165,7 @@ class DemandForecastService:
                     "model": "N/A",
                     "forecast": []
                 }
-                return {
+                res_dict = {
                     "product": product_info,
                     "short_term": {**empty_horizon, "horizon": "7-30 Days", "forecast_days": 30},
                     "mid_term": {**empty_horizon, "horizon": "31-90 Days", "forecast_days": 90},
@@ -146,12 +178,14 @@ class DemandForecastService:
                     "generated_at": datetime.now().isoformat(),
                     "metrics": self.metrics
                 }
+                DemandForecastService._forecast_cache[cache_key] = (now_ts, res_dict)
+                return res_dict
 
             # Fetch product-specific seasonality from SeasonalTrendService
             seasonal_data = {}
             if self.seasonal_trend_service:
                 try:
-                    seasonal_data = self.seasonal_trend_service.get_seasonal_trends(product_id)
+                    seasonal_data = self.seasonal_trend_service.get_seasonal_trends(product_id, db=db, preloaded_sales=sales_records)
                 except Exception as e:
                     logger.warning(f"Failed to fetch seasonal trends: {e}")
 
@@ -362,7 +396,7 @@ class DemandForecastService:
             current_month = now.month
             current_month_seasonal_factor = seasonal_indices[current_month]
 
-            return {
+            res_dict = {
                 "product": product_info,
                 "short_term": {
                     "horizon": "7-30 Days",
@@ -402,6 +436,9 @@ class DemandForecastService:
                 "generated_at": datetime.now().isoformat(),
                 "metrics": self.metrics
             }
+            DemandForecastService._forecast_cache[cache_key] = (now_ts, res_dict)
+            return res_dict
 
         finally:
-            db.close()
+            if close_db:
+                db.close()

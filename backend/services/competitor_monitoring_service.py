@@ -906,7 +906,7 @@ class CompetitorMonitoringService:
                     continue
 
             # Disappeared Competitor Check (Only for live API monitoring)
-            if use_live_api:
+            if use_live_api and product_successful_provider in ["pricesapi", "openwebninja"]:
                 current_competitor_names = {item["competitor_name"] for item in items_to_process}
                 previous_prices = db_conn.query(CompetitorPrice).filter(CompetitorPrice.product_id == product.id).all()
                 for prev_rec in previous_prices:
