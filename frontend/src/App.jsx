@@ -16,6 +16,7 @@ import PricingComparisonReports from "./pages/PricingComparisonReports";
 import MarketIntelligence from "./pages/MarketIntelligence";
 import ProfitabilityAnalytics from "./pages/ProfitabilityAnalytics";
 import PricingStrategyRecommendations from "./pages/PricingStrategyRecommendations";
+import ExecutiveBIReports from "./pages/ExecutiveBIReports";
 
 
 const API = "http://127.0.0.1:8000";
@@ -258,6 +259,13 @@ export default function App() {
 
   function renderNavIcon(label) {
     const l = label.toLowerCase();
+    if (l.includes("executive") || l.includes("bi")) {
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      );
+    }
     if (l.includes("dashboard")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1067,6 +1075,7 @@ export default function App() {
     if (r === "admin") {
       return [
         { label: "Admin Dashboard", type: "view", view: "admin_dashboard" },
+        { label: "Executive BI Reports", type: "view", view: "executive_bi" },
         { label: "User & Role Management", type: "view", view: "admin_dashboard" },
         { label: "Products Catalog", type: "view", view: "products" },
         { label: "Pricing Strategy", type: "view", view: "pricing_strategy" },
@@ -1082,6 +1091,7 @@ export default function App() {
     if (r === "pricing manager") {
       return [
         { label: "Pricing Manager", type: "view", view: "pricing_manager_dashboard" },
+        { label: "Executive BI Reports", type: "view", view: "executive_bi" },
         { label: "AI Recommendations", type: "view", view: "ai_recommendation" },
         { label: "Pricing Strategy", type: "view", view: "pricing_strategy" },
         { label: "Competitor Monitoring", type: "view", view: "competitor_monitoring" },
@@ -1376,13 +1386,13 @@ export default function App() {
     if (view === "dashboard") return true;
     if (r === "admin") {
       return [
-        "admin_dashboard", "products", "ai_monitoring", "prediction_history", 
+        "admin_dashboard", "executive_bi", "products", "ai_monitoring", "prediction_history", 
         "seasonal_trends", "pricing_comparison", "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     if (r === "pricing manager") {
       return [
-        "pricing_manager_dashboard", "ai_recommendation", "products", 
+        "pricing_manager_dashboard", "executive_bi", "ai_recommendation", "products", 
         "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
         "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
@@ -1668,6 +1678,14 @@ export default function App() {
           />
         ) : activeView === "profitability" ? (
           <ProfitabilityAnalytics
+            products={products}
+            token={token}
+            API={API}
+            showToast={showToast}
+            formatCurrency={formatCurrency}
+          />
+        ) : activeView === "executive_bi" ? (
+          <ExecutiveBIReports
             products={products}
             token={token}
             API={API}

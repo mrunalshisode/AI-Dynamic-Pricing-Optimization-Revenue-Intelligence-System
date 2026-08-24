@@ -70,6 +70,10 @@ app.include_router(profitability_router)
 from routes.pricing_strategy import router as pricing_strategy_router
 app.include_router(pricing_strategy_router)
 
+# Register Executive BI router
+from routes.executive_bi import router as executive_bi_router
+app.include_router(executive_bi_router)
+
 
 app.add_middleware(
     CORSMiddleware,

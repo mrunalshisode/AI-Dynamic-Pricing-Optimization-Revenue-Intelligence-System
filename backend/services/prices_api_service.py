@@ -18,7 +18,7 @@ class PricesAPIService:
     def __init__(self):
         self.api_key = os.getenv("PRICES_API_KEY", "").strip()
         self.endpoint = "https://api.pricesapi.io/api/v1/products/search"
-        self.timeout = (5.0, 95.0)  # 5s connection, 95s read timeout
+        self.timeout = (3.0, 12.0)  # Strict timeout: 3s connect, 12s read
 
     def search_product(self, product_name: str, product_id: str) -> List[Dict[str, Any]]:
         """
@@ -48,7 +48,7 @@ class PricesAPIService:
             "offers_limit": 10
         }
 
-        max_attempts = 3
+        max_attempts = 2
         attempt = 0
         response = None
 

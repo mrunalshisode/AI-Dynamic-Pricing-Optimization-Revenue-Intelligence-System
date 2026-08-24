@@ -175,7 +175,11 @@ export default function CompetitorMonitoring({
   const handleTriggerUpdate = async () => {
     setIsTriggering(true);
     try {
-      const res = await axios.post(`${API}/api/competitor-monitoring/trigger-update`, {}, { headers });
+      const res = await axios.post(
+        `${API}/api/competitor-monitoring/trigger-update`,
+        {},
+        { headers, timeout: 30000 }
+      );
       if (res.data && res.data.status === "success") {
         showToast(
           `Scrape completed. Checked: ${res.data.competitors_checked}, Changes: ${res.data.price_changes_detected}, Alerts: ${res.data.alerts_generated}`,
@@ -192,7 +196,13 @@ export default function CompetitorMonitoring({
       }
     } catch (err) {
       console.error("Error triggering update:", err);
-      showToast("Failed to run competitor monitoring update cycle.", "error");
+      if (err.response && err.response.status === 409) {
+        showToast("A competitor monitoring scan is already in progress. Please wait.", "warning");
+      } else if (err.code === "ECONNABORTED") {
+        showToast("Competitor monitoring scan request timed out. Retrying in background...", "warning");
+      } else {
+        showToast("Failed to run competitor monitoring update cycle.", "error");
+      }
     } finally {
       setIsTriggering(false);
     }

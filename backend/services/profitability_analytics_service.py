@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from services.demand_forecast_service import DemandForecastService
-from services.seasonal_trend_service import SeasonalTrendService
+from services.seasonal_trend_service import SeasonalTrendService, PRODUCT_MAPPING
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger("services.profitability_analytics_service")
@@ -211,7 +211,7 @@ class ProfitabilityAnalyticsService:
 
         # Group monthly trends using Seasonal monthly quantities cache
         monthly_trends = []
-        stockcode = getattr(self.seasonal_service, "PRODUCT_MAPPING", {}).get(product_id)
+        stockcode = PRODUCT_MAPPING.get(product_id)
         month_cache = self.seasonal_service.product_monthly_cache.get(stockcode) if stockcode else None
         
         month_names = {
@@ -259,13 +259,32 @@ class ProfitabilityAnalyticsService:
         ProfitabilityAnalyticsService._details_cache[product_id] = (now_ts, res_dict)
         return res_dict
 
-    def calculate_trends(self, db: Session) -> List[Dict[str, Any]]:
+    def calculate_trends(
+        self,
+        db: Session,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Calculates month-by-month aggregated revenue, cost, profit, and margin trends across all products.
         """
         from main import Product
+        from datetime import datetime
         products = db.query(Product).all()
         cost_available = self._check_cost_data_available_in_memory(products)
+
+        start_month = None
+        end_month = None
+        if start_date:
+            try:
+                start_month = datetime.strptime(start_date, "%Y-%m-%d").month
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end_month = datetime.strptime(end_date, "%Y-%m-%d").month
+            except ValueError:
+                pass
 
         month_names = {
             1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
@@ -278,7 +297,7 @@ class ProfitabilityAnalyticsService:
         monthly_cost = {m: 0.0 for m in range(1, 13)}
 
         for p in products:
-            stockcode = getattr(self.seasonal_service, "PRODUCT_MAPPING", {}).get(p.id)
+            stockcode = PRODUCT_MAPPING.get(p.id)
             month_cache = self.seasonal_service.product_monthly_cache.get(stockcode) if stockcode else None
             if not month_cache:
                 continue
@@ -290,9 +309,25 @@ class ProfitabilityAnalyticsService:
                 if cost_available and p.cost_price:
                     monthly_cost[m] += qty * p.cost_price
 
+        def is_month_in_range(m: int, sm: Optional[int], em: Optional[int]) -> bool:
+            if sm is None and em is None:
+                return True
+            if sm is not None and em is not None:
+                if sm <= em:
+                    return sm <= m <= em
+                else:
+                    return m >= sm or m <= em
+            if sm is not None:
+                return m >= sm
+            if em is not None:
+                return m <= em
+            return True
+
         trends = []
         for m in sorted(monthly_units.keys()):
             if monthly_units[m] <= 0:
+                continue
+            if not is_month_in_range(m, start_month, end_month):
                 continue
             r = monthly_rev[m]
             c = monthly_cost[m]

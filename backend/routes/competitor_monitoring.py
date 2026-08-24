@@ -117,6 +117,11 @@ def trigger_price_update(
     service = CompetitorMonitoringService()
     try:
         results = service.run_monitoring_cycle(db, product_id=product_id, force_all=True)
+        if results.get("status") == "already_running":
+            raise HTTPException(
+                status_code=409,
+                detail="A competitor monitoring scan is already in progress."
+            )
         return {
             "status": "success",
             "source": results["source"],

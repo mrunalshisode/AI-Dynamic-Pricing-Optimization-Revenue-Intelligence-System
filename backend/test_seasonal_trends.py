@@ -36,7 +36,14 @@ class TestSeasonalTrends(unittest.TestCase):
         """
         Verify seasonal trend parameters returned for a standard active product.
         """
-        product = self.db.query(Product).first()
+        from services.seasonal_trend_service import PRODUCT_MAPPING
+        product = None
+        for p in self.db.query(Product).all():
+            if p.id in PRODUCT_MAPPING:
+                product = p
+                break
+        if not product:
+            product = self.db.query(Product).first()
         if not product:
             self.skipTest("No products found in database.")
 
