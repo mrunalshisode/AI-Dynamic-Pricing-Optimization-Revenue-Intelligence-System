@@ -19,7 +19,7 @@ import PricingStrategyRecommendations from "./pages/PricingStrategyRecommendatio
 import ExecutiveBIReports from "./pages/ExecutiveBIReports";
 
 
-const API = "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const roleOptions = [
   { value: "pricing manager", label: "Pricing Manager" },
@@ -169,7 +169,7 @@ export default function App() {
     let result = [...products];
     if (catalogSearch.trim()) {
       const q = catalogSearch.toLowerCase();
-      result = result.filter(item => 
+      result = result.filter(item =>
         (item.name || "").toLowerCase().includes(q) ||
         (item.category || "").toLowerCase().includes(q)
       );
@@ -199,7 +199,7 @@ export default function App() {
     let result = [...products];
     if (pricingSearch.trim()) {
       const q = pricingSearch.toLowerCase();
-      result = result.filter(item => 
+      result = result.filter(item =>
         (item.name || "").toLowerCase().includes(q)
       );
     }
@@ -232,7 +232,7 @@ export default function App() {
     let result = [...(salesInfo.sample || [])];
     if (salesSearch.trim()) {
       const q = salesSearch.toLowerCase();
-      result = result.filter(item => 
+      result = result.filter(item =>
         (item.product_name || "").toLowerCase().includes(q)
       );
     }
@@ -262,84 +262,84 @@ export default function App() {
     if (l.includes("executive") || l.includes("bi")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
       );
     }
     if (l.includes("dashboard")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       );
     }
     if (l.includes("product")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <ellipse cx="12" cy="5" rx="9" ry="3"/>
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-          <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
         </svg>
       );
     }
     if (l.includes("analytics")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
-          <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+          <path d="M22 12A10 10 0 0 0 12 2v10z" />
         </svg>
       );
     }
     if (l.includes("monitoring")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
         </svg>
       );
     }
     if (l.includes("logs")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6"/>
-          <line x1="8" y1="12" x2="21" y2="12"/>
-          <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/>
-          <line x1="3" y1="12" x2="3.01" y2="12"/>
-          <line x1="3" y1="18" x2="3.01" y2="18"/>
+          <line x1="8" y1="6" x2="21" y2="6" />
+          <line x1="8" y1="12" x2="21" y2="12" />
+          <line x1="8" y1="18" x2="21" y2="18" />
+          <line x1="3" y1="6" x2="3.01" y2="6" />
+          <line x1="3" y1="12" x2="3.01" y2="12" />
+          <line x1="3" y1="18" x2="3.01" y2="18" />
         </svg>
       );
     }
     if (l.includes("strategy") || l.includes("optimizer") || l.includes("forecast") || l.includes("insights") || l.includes("outlook") || l.includes("planner") || l.includes("projections") || l.includes("recommend")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="14"/>
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
       );
     }
     if (l.includes("history") || l.includes("actions")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
         </svg>
       );
     }
     if (l.includes("alert") || l.includes("quality") || l.includes("verification") || l.includes("pulse")) {
       return (
         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
       );
     }
     return (
       <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
     );
   }
@@ -353,8 +353,8 @@ export default function App() {
     if (label.includes("revenue") || label.includes("pulse")) {
       icon = (
         <svg className="metric-icon blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23"/>
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          <line x1="12" y1="1" x2="12" y2="23" />
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         </svg>
       );
       trend = <span className="metric-trend positive">+14.2% vs last month</span>;
@@ -362,9 +362,9 @@ export default function App() {
     } else if (label.includes("units") || label.includes("sold")) {
       icon = (
         <svg className="metric-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <path d="M16 10a4 4 0 0 1-8 0"/>
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <path d="M16 10a4 4 0 0 1-8 0" />
         </svg>
       );
       trend = <span className="metric-trend positive">+8.6% week-over-week</span>;
@@ -372,8 +372,8 @@ export default function App() {
     } else if (label.includes("average") || label.includes("price") || label.includes("suggested") || label.includes("ai")) {
       icon = (
         <svg className="metric-icon purple" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 14 14"/>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 14 14" />
         </svg>
       );
       trend = <span className="metric-trend neutral">Model Optimized</span>;
@@ -381,8 +381,8 @@ export default function App() {
     } else if (label.includes("confidence")) {
       icon = (
         <svg className="metric-icon orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
       );
       trend = <span className="metric-trend positive">High Reliability</span>;
@@ -390,9 +390,9 @@ export default function App() {
     } else if (label.includes("alerts")) {
       icon = (
         <svg className="metric-icon red" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       );
       trend = metric.value > 0 ? <span className="metric-trend negative">Attention Required</span> : <span className="metric-trend positive">All Clear</span>;
@@ -400,9 +400,9 @@ export default function App() {
     } else {
       icon = (
         <svg className="metric-icon blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="16"/>
-          <line x1="8" y1="12" x2="16" y2="12"/>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="16" />
+          <line x1="8" y1="12" x2="16" y2="12" />
         </svg>
       );
       trend = <span className="metric-trend neutral">Active Monitoring</span>;
@@ -780,7 +780,7 @@ export default function App() {
   async function handlePricingSubmit(e) {
     e.preventDefault();
     setIsSubmittingPricing(true);
-    
+
     const product = products.find((p) => String(p.id) === String(pricingForm.product));
     if (!product) {
       setIsSubmittingPricing(false);
@@ -794,7 +794,7 @@ export default function App() {
     );
     const salesCount = productSales.reduce((acc, s) => acc + (s.quantity_sold || s.units_sold || 0), 0);
     const revenueSum = productSales.reduce((acc, s) => acc + (s.revenue || 0), 0);
-    
+
     const historicalSales = salesCount;
     const historicalRevenue = revenueSum;
 
@@ -823,7 +823,7 @@ export default function App() {
           reason: rec.model_signals || "model pricing signals",
           originalReason: rec.reason,
         };
-        
+
         setRecommendation(newRecommendation);
 
         // Add to history list
@@ -1029,7 +1029,7 @@ export default function App() {
     }
 
     const existingScript = document.getElementById("google-gsi");
-    
+
     const initializeGoogle = () => {
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
@@ -1123,40 +1123,40 @@ export default function App() {
   const roleMetrics =
     getNormalizedRole(userRole) === "business analyst"
       ? [
-          {
-            label: "Revenue Pulse",
-            value: formatCurrency(dashboard?.total_revenue || 0),
-            description: "Track portfolio health across all products.",
-          },
-          {
-            label: "Units Sold",
-            value: dashboard?.total_units_sold || 0,
-            description: "A quick view of conversion intensity.",
-          },
-          {
-            label: "Average Price",
-            value: formatCurrency(dashboard?.average_product_price || 0),
-            description: "Supports price sensitivity and forecast planning.",
-          },
-        ]
+        {
+          label: "Revenue Pulse",
+          value: formatCurrency(dashboard?.total_revenue || 0),
+          description: "Track portfolio health across all products.",
+        },
+        {
+          label: "Units Sold",
+          value: dashboard?.total_units_sold || 0,
+          description: "A quick view of conversion intensity.",
+        },
+        {
+          label: "Average Price",
+          value: formatCurrency(dashboard?.average_product_price || 0),
+          description: "Supports price sensitivity and forecast planning.",
+        },
+      ]
       : [
-          {
-            label: "Recommended Revenue Lift",
-            value: `${recommendation?.revenueLift || "18.7"}%`,
-            description:
-              "Based on demand, inventory, and competitor pressure.",
-          },
-          {
-            label: "AI Suggested Price",
-            value: formatCurrency(recommendation?.suggestedPrice || 129),
-            description: "Real-time pricing recommendation.",
-          },
-          {
-            label: "Forecast Confidence",
-            value: `${recommendation?.confidence || "92"}%`,
-            description: "Confidence reflects current market conditions.",
-          },
-        ];
+        {
+          label: "Recommended Revenue Lift",
+          value: `${recommendation?.revenueLift || "18.7"}%`,
+          description:
+            "Based on demand, inventory, and competitor pressure.",
+        },
+        {
+          label: "AI Suggested Price",
+          value: formatCurrency(recommendation?.suggestedPrice || 129),
+          description: "Real-time pricing recommendation.",
+        },
+        {
+          label: "Forecast Confidence",
+          value: `${recommendation?.confidence || "92"}%`,
+          description: "Confidence reflects current market conditions.",
+        },
+      ];
 
   const showProductsPage = activeView === "products";
 
@@ -1386,21 +1386,21 @@ export default function App() {
     if (view === "dashboard") return true;
     if (r === "admin") {
       return [
-        "admin_dashboard", "executive_bi", "products", "ai_monitoring", "prediction_history", 
+        "admin_dashboard", "executive_bi", "products", "ai_monitoring", "prediction_history",
         "seasonal_trends", "pricing_comparison", "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     if (r === "pricing manager") {
       return [
-        "pricing_manager_dashboard", "executive_bi", "ai_recommendation", "products", 
-        "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
+        "pricing_manager_dashboard", "executive_bi", "ai_recommendation", "products",
+        "seasonal_trends", "competitor_monitoring", "pricing_comparison",
         "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
     if (r === "business analyst") {
       return [
-        "business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products", 
-        "seasonal_trends", "competitor_monitoring", "pricing_comparison", 
+        "business_analyst_dashboard", "bi_analytics", "ai_recommendation", "products",
+        "seasonal_trends", "competitor_monitoring", "pricing_comparison",
         "market_intelligence", "profitability", "pricing_strategy"
       ].includes(view);
     }
@@ -1415,16 +1415,16 @@ export default function App() {
             <div className="logo-mark">R</div>
             <span className="brand-name">RevenueIQ</span>
           </div>
-          <button 
-            type="button" 
-            className="sidebar-collapse-toggle" 
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {sidebarCollapsed ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
             )}
           </button>
         </div>
@@ -1492,16 +1492,16 @@ export default function App() {
               <span className="user-role">{getRoleDisplayName(userRole)}</span>
             </div>
           </div>
-          <button 
-            className="logout-button" 
+          <button
+            className="logout-button"
             onClick={logout}
             title={sidebarCollapsed ? "Log out" : ""}
           >
             {sidebarCollapsed ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width: "18px", height: "18px", stroke: "currentColor"}}>
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: "18px", height: "18px", stroke: "currentColor" }}>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             ) : "Log out"}
           </button>
@@ -2087,9 +2087,9 @@ export default function App() {
         <div className={`toast-notification ${toast.type}`}>
           <span className="toast-icon">
             {toast.type === "success" ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width: "16px", height: "16px"}}><polyline points="20 6 9 17 4 12"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: "16px", height: "16px" }}><polyline points="20 6 9 17 4 12" /></svg>
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width: "16px", height: "16px"}}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: "16px", height: "16px" }}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             )}
           </span>
           <span className="toast-message">{toast.message}</span>
