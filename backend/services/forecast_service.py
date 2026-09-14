@@ -33,6 +33,12 @@ class ForecastService:
     def _load_model(self) -> Any:
         if ForecastService._model is None:
             if not self.model_path.exists():
+                try:
+                    from services.ensure_models import ensure_models
+                    ensure_models()
+                except Exception as e:
+                    logger.warning(f"ensure_models attempt failed: {e}")
+            if not self.model_path.exists():
                 raise FileNotFoundError(f"Prophet demand forecasting model not found at: {self.model_path}")
             logger.info(f"Loading Prophet demand model from: {self.model_path}")
             with open(self.model_path, "rb") as f:

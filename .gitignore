@@ -254,9 +254,10 @@ Thumbs.db
 .vscode/
 .idea/
 
-# AI Models
-backend/saved_models/
-*.pkl
+# AI Models (Track production model artifacts in git, ignore backup/temp models)
+!backend/saved_models/
+!backend/saved_models/**
+backend/saved_models_backup/
 *.keras
 
 # Dataset cache
@@ -275,9 +276,6 @@ backend/datasets/features/
 
 # AI Training
 backend/datasets/raw/
-
-# Model checkpoints
-*.joblibbackend/saved_models_backup/
 
 # Production Hardening Excludes
 backend/.env

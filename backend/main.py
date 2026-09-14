@@ -18,22 +18,29 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
-DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
-SECRET_KEY = "change-this-secret-key"
-ALGORITHM = "HS256"
-ALLOWED_ROLES = {"admin", "pricing manager", "business analyst"}
 
-
-# Load environment variables
+# Load environment variables from backend/.env if present
 load_dotenv(dotenv_path=BACKEND_DIR / ".env")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ALLOWED_ROLES = {"admin", "pricing manager", "business analyst"}
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 from database.postgres import POSTGRES_URL
-if POSTGRES_URL:
-    DATABASE_URL = POSTGRES_URL
+DATABASE_URL = POSTGRES_URL or os.getenv("DATABASE_URL") or os.getenv("INTERNAL_DATABASE_URL")
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+else:
+    DATABASE_URL = f"sqlite:///{BASE_DIR / 'pricepilot.db'}"
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 app = FastAPI(title="PricePilot AI API")
@@ -75,14 +82,25 @@ from routes.executive_bi import router as executive_bi_router
 app.include_router(executive_bi_router)
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+cors_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://0.0.0.0:5173",
-    "https://ai-dynamic-pricing-frontend.onrender.com"
-],
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://ai-dynamic-pricing-frontend.onrender.com",
+]
+frontend_env = os.getenv("FRONTEND_URL")
+if frontend_env:
+    for url in frontend_env.split(","):
+        cleaned = url.strip()
+        if cleaned and cleaned not in cors_origins:
+            cors_origins.append(cleaned)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -550,6 +568,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @app.on_event("startup")
 def initialize_database():
+    try:
+        from services.ensure_models import ensure_models
+        ensure_models()
+    except Exception as me:
+        print(f"Error ensuring models on startup: {me}")
+
     try:
         from database.health import run_database_health_checks
         run_database_health_checks()

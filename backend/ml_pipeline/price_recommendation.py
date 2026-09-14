@@ -44,6 +44,14 @@ class PriceRecommendationEngine:
         self.prophet_trend = self._load_prophet_trend(trend_report_path)
 
     def _load_model(self, path: Path) -> Any:
+        if not path.exists():
+            try:
+                from services.ensure_models import ensure_models
+                ensure_models()
+            except Exception as e:
+                logger.warning(f"ensure_models attempt failed: {e}")
+        if not path.exists():
+            raise FileNotFoundError(f"LightGBM price prediction model not found at: {path}")
         logger.info(f"Loading LightGBM price prediction model from: {path}")
         return joblib.load(path)
 

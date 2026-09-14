@@ -59,6 +59,12 @@ class DemandForecastService:
 
     def _load_lightgbm_model(self) -> Any:
         if not self.lightgbm_model_path.exists():
+            try:
+                from services.ensure_models import ensure_models
+                ensure_models()
+            except Exception as e:
+                logger.warning(f"ensure_models attempt failed: {e}")
+        if not self.lightgbm_model_path.exists():
             logger.warning(f"LightGBM demand model not found at: {self.lightgbm_model_path}")
             return None
         logger.info(f"Loading LightGBM demand model from: {self.lightgbm_model_path}")

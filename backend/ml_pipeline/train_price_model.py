@@ -163,8 +163,23 @@ def find_pricing_dataset(features_dir: Path) -> Path:
                         return file_path
                 except Exception as e:
                     logger.warning(f"Error reading header of {file_path}: {e}")
-                    
-    raise FileNotFoundError("Could not find any feature CSV dataset containing a 'price' column.")
+    # Fallback to datasets/training if features directory does not have the dataset
+    training_dir = BASE_DIR / "datasets" / "training"
+    if training_dir.exists():
+        logger.info(f"Scanning training directory: {training_dir} for pricing datasets...")
+        for root, _, files in os.walk(training_dir):
+            for file in files:
+                if file.endswith(".csv"):
+                    file_path = Path(root) / file
+                    try:
+                        header_df = pd.read_csv(file_path, nrows=0)
+                        if any("price" in col.lower() for col in header_df.columns):
+                            logger.info(f"Found suitable pricing dataset in training: {file_path}")
+                            return file_path
+                    except Exception as e:
+                        logger.warning(f"Error reading header of {file_path}: {e}")
+
+    raise FileNotFoundError("Could not find any feature or training CSV dataset containing a 'price' column.")
 
 def identify_target_and_date_cols(df: pd.DataFrame) -> Tuple[str, str]:
     """

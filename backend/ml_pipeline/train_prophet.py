@@ -51,8 +51,14 @@ def find_demand_dataset(features_dir: Path) -> Path:
     if direct_path.exists():
         logger.info(f"Using default demand dataset path: {direct_path}")
         return direct_path
+
+    # Fallback to datasets/training
+    training_demand_path = BASE_DIR / "datasets" / "training" / "prophet_demand_train.csv"
+    if training_demand_path.exists():
+        logger.info(f"Using training demand dataset path: {training_demand_path}")
+        return training_demand_path
         
-    raise FileNotFoundError("Could not find any feature CSV dataset containing 'sales' or 'demand' column.")
+    raise FileNotFoundError("Could not find any feature or training CSV dataset containing 'sales' or 'demand' column.")
 
 def prepare_prophet_data(df: pd.DataFrame) -> pd.DataFrame:
     """

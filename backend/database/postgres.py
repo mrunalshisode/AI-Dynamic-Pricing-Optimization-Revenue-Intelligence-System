@@ -11,9 +11,13 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 # Ensure environment variables are loaded
 load_dotenv(dotenv_path=BACKEND_DIR / ".env")
 
-# Read configurations
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-if not POSTGRES_URL:
+# Read configurations - support POSTGRES_URL, DATABASE_URL, and INTERNAL_DATABASE_URL (common on Render)
+POSTGRES_URL = os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL") or os.getenv("INTERNAL_DATABASE_URL")
+if POSTGRES_URL:
+    # SQLAlchemy requires postgresql:// instead of postgres://
+    if POSTGRES_URL.startswith("postgres://"):
+        POSTGRES_URL = POSTGRES_URL.replace("postgres://", "postgresql://", 1)
+else:
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "postgres")
     host = os.getenv("POSTGRES_HOST", "localhost")

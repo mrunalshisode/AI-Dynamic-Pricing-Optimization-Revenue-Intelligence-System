@@ -31,12 +31,16 @@ class PricingService:
         
         # Pre-load features dataset
         features_csv_path = BASE_DIR / "datasets" / "features" / "online_retail" / "online_retail_II.csv"
+        if not features_csv_path.exists():
+            features_csv_path = BASE_DIR / "datasets" / "training" / "lightgbm_price_train.csv"
+            
         self.features_df = None
         if features_csv_path.exists():
             logger.info(f"Pre-loading features dataset from {features_csv_path}")
             try:
                 self.features_df = pd.read_csv(features_csv_path)
-                self.features_df["stockcode"] = self.features_df["stockcode"].astype(str).str.strip()
+                if "stockcode" in self.features_df.columns:
+                    self.features_df["stockcode"] = self.features_df["stockcode"].astype(str).str.strip()
             except Exception as e:
                 logger.error(f"Failed to load features dataset: {e}")
         else:
@@ -44,6 +48,12 @@ class PricingService:
         
     def _load_model(self) -> Any:
         if PricingService._model is None:
+            if not self.model_path.exists():
+                try:
+                    from services.ensure_models import ensure_models
+                    ensure_models()
+                except Exception as e:
+                    logger.warning(f"ensure_models attempt failed: {e}")
             if not self.model_path.exists():
                 raise FileNotFoundError(f"LightGBM price prediction model not found at: {self.model_path}")
             logger.info(f"Loading LightGBM price model from: {self.model_path}")
