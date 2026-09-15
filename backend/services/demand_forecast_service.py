@@ -130,7 +130,7 @@ class DemandForecastService:
         now_ts = time.time()
         if cache_key in DemandForecastService._forecast_cache:
             ts, cached_res = DemandForecastService._forecast_cache[cache_key]
-            if now_ts - ts < 15:  # 15 seconds cache duration
+            if now_ts - ts < 3600:  # 1 hour cache duration for fast responses and low RAM
                 return cached_res
 
         from main import SessionLocal, Product, SalesRecord

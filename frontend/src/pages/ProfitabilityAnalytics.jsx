@@ -49,14 +49,14 @@ export default function ProfitabilityAnalytics({
         // Fetch Top Products & catalog tables
         const topRes = await axios.get(`${API}/api/profitability/top-products`, { 
           headers,
-          timeout: 10000 
+          timeout: 30000 
         });
         setTopProducts(topRes.data);
    
         // Fetch aggregated trends for charts
         const trendsRes = await axios.get(`${API}/api/profitability/trends`, { 
           headers,
-          timeout: 10000 
+          timeout: 30000 
         });
         setTrends(trendsRes.data);
       } catch (err) {
@@ -81,7 +81,7 @@ export default function ProfitabilityAnalytics({
         const overviewRes = await axios.get(`${API}/api/profitability/overview`, {
           headers,
           params: { product_id: selectedProductId !== "all" ? selectedProductId : undefined },
-          timeout: 10000
+          timeout: 30000
         });
         setOverview(overviewRes.data);
    
@@ -89,7 +89,7 @@ export default function ProfitabilityAnalytics({
         if (selectedProductId !== "all") {
           const detailRes = await axios.get(`${API}/api/profitability/product/${selectedProductId}`, { 
             headers,
-            timeout: 10000 
+            timeout: 30000 
           });
           setSingleProductStats(detailRes.data);
         } else {

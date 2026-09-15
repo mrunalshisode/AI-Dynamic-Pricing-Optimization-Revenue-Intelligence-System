@@ -47,7 +47,7 @@ export default function MarketIntelligence({
     try {
       const response = await axios.get(`${API}/api/market-intelligence/portfolio`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000
+        timeout: 30000
       });
       setPortfolio(response.data);
     } catch (err) {
@@ -73,7 +73,7 @@ export default function MarketIntelligence({
       try {
         const response = await axios.get(`${API}/api/market-intelligence/${selectedProductId}`, {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000
+          timeout: 30000
         });
         setProductStats(response.data);
       } catch (err) {

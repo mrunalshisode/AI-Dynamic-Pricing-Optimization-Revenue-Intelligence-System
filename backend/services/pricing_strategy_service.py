@@ -1,3 +1,4 @@
+import time
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -11,6 +12,8 @@ from services.recommendation_service import RecommendationService
 logger = logging.getLogger("services.pricing_strategy_service")
 
 class PricingStrategyService:
+    _strategy_cache = {}
+
     def __init__(self):
         self.comparison_service = PricingComparisonService()
         self.demand_service = DemandForecastService()
@@ -21,6 +24,11 @@ class PricingStrategyService:
         """
         Calculates and returns a comprehensive pricing strategy recommendation for a product.
         """
+        now_ts = time.time()
+        if product_id in PricingStrategyService._strategy_cache:
+            ts, cached_strat = PricingStrategyService._strategy_cache[product_id]
+            if now_ts - ts < 3600:
+                return cached_strat
         from main import Product, SalesRecord, CompetitorPrice
         
         # 1. Fetch Product
@@ -349,3 +357,5 @@ class PricingStrategyService:
             "monitoring_priority": monitoring_priority,
             "review_period_days": review_period_days
         }
+        PricingStrategyService._strategy_cache[product_id] = (now_ts, result)
+        return result

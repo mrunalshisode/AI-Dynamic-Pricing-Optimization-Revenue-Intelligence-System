@@ -1,4 +1,5 @@
 import math
+import time
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -10,6 +11,10 @@ from services.seasonal_trend_service import SeasonalTrendService
 logger = logging.getLogger("services.market_intelligence_service")
 
 class MarketIntelligenceService:
+    _portfolio_cache = None
+    _portfolio_cache_ts = 0
+    _product_cache = {}
+
     def __init__(self):
         self.demand_service = DemandForecastService()
         self.seasonal_service = SeasonalTrendService()
@@ -26,6 +31,12 @@ class MarketIntelligenceService:
         Synthesizes pricing, competitor metrics, forecasting, seasonality,
         and inventory metrics for a product.
         """
+        now_ts = time.time()
+        is_direct = (preloaded_competitors is None and preloaded_history is None and preloaded_sales is None)
+        if is_direct and product_id in MarketIntelligenceService._product_cache:
+            ts, cached_prod = MarketIntelligenceService._product_cache[product_id]
+            if now_ts - ts < 3600:
+                return cached_prod
         from main import Product, CompetitorPrice, CompetitorPriceHistory, SalesRecord
         
         product = db.query(Product).filter(Product.id == product_id).first()
@@ -261,7 +272,7 @@ class MarketIntelligenceService:
         elif current_season == "low":
             insights.append(f"Currently in off-season. Off-season low period historically falls in {low_period}.")
 
-        return {
+        res_dict = {
             "product_id": product.id,
             "product_name": product.name,
             "our_price": our_price,
@@ -307,11 +318,21 @@ class MarketIntelligenceService:
             },
             "insights": insights
         }
+        if is_direct:
+            MarketIntelligenceService._product_cache[product_id] = (now_ts, res_dict)
+        return res_dict
 
     def calculate_portfolio_intelligence(self, db: Session) -> Dict[str, Any]:
         """
         Aggregates market intelligence stats across all catalog products using bulk queries.
         """
+        now_ts = time.time()
+        if (
+            MarketIntelligenceService._portfolio_cache is not None
+            and (now_ts - MarketIntelligenceService._portfolio_cache_ts < 3600)
+        ):
+            return MarketIntelligenceService._portfolio_cache
+
         from main import Product, CompetitorPrice, CompetitorPriceHistory, SalesRecord
         products = db.query(Product).all()
         
@@ -378,10 +399,13 @@ class MarketIntelligenceService:
         total_products = len(portfolio)
         average_pressure = total_pressure / pressure_products_count if pressure_products_count > 0 else 0.0
 
-        return {
+        result = {
             "total_products": total_products,
             "average_market_pressure": average_pressure,
             "products_at_risk": risk_count,
             "classification_counts": classification_counts,
             "portfolio": portfolio
         }
+        MarketIntelligenceService._portfolio_cache = result
+        MarketIntelligenceService._portfolio_cache_ts = now_ts
+        return result

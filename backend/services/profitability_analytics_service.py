@@ -1,3 +1,4 @@
+import time
 import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ logger = logging.getLogger("services.profitability_analytics_service")
 
 class ProfitabilityAnalyticsService:
     _details_cache = {}
+    _top_products_cache = None
+    _top_products_cache_ts = 0
 
     def __init__(self):
         self.demand_service = DemandForecastService()
@@ -100,7 +103,7 @@ class ProfitabilityAnalyticsService:
         now_ts = time.time()
         if product_id in ProfitabilityAnalyticsService._details_cache:
             ts, cached_details = ProfitabilityAnalyticsService._details_cache[product_id]
-            if now_ts - ts < 15:  # 15 seconds cache duration
+            if now_ts - ts < 3600:  # 1 hour cache duration
                 return cached_details
 
         from main import Product, SalesRecord, CompetitorPrice
@@ -349,6 +352,13 @@ class ProfitabilityAnalyticsService:
         """
         Classifies and sorts products by revenue, profit, and returns low-margin items.
         """
+        now_ts = time.time()
+        if (
+            ProfitabilityAnalyticsService._top_products_cache is not None
+            and (now_ts - ProfitabilityAnalyticsService._top_products_cache_ts < 3600)
+        ):
+            return ProfitabilityAnalyticsService._top_products_cache
+
         from main import Product, SalesRecord, CompetitorPrice
         products = db.query(Product).all()
         cost_available = self._check_cost_data_available_in_memory(products)
@@ -386,9 +396,12 @@ class ProfitabilityAnalyticsService:
             top_profitable = sorted(product_list, key=lambda x: x["revenue"], reverse=True)
             low_margin = []
 
-        return {
+        result = {
             "cost_data_available": cost_available,
             "top_profitable": top_profitable[:5],
             "low_margin": low_margin[:5],
             "all_products": product_list
         }
+        ProfitabilityAnalyticsService._top_products_cache = result
+        ProfitabilityAnalyticsService._top_products_cache_ts = now_ts
+        return result

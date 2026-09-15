@@ -22,29 +22,37 @@ class PricingService:
     and execute pricing predictions for single feature dictionaries or batches.
     """
     _model = None
+    _features_cache = None
 
     def __init__(self, model_path: Path = None):
         if model_path is None:
             model_path = SAVED_MODELS_DIR / "price_prediction_lightgbm.joblib"
         self.model_path = model_path
         self.model = self._load_model()
-        
-        # Pre-load features dataset
-        features_csv_path = BASE_DIR / "datasets" / "features" / "online_retail" / "online_retail_II.csv"
-        if not features_csv_path.exists():
-            features_csv_path = BASE_DIR / "datasets" / "training" / "lightgbm_price_train.csv"
-            
-        self.features_df = None
-        if features_csv_path.exists():
-            logger.info(f"Pre-loading features dataset from {features_csv_path}")
-            try:
-                self.features_df = pd.read_csv(features_csv_path)
-                if "stockcode" in self.features_df.columns:
-                    self.features_df["stockcode"] = self.features_df["stockcode"].astype(str).str.strip()
-            except Exception as e:
-                logger.error(f"Failed to load features dataset: {e}")
-        else:
-            logger.warning(f"Features dataset not found at {features_csv_path}")
+        self._ensure_features_cache()
+
+    @classmethod
+    def _ensure_features_cache(cls):
+        if cls._features_cache is None:
+            features_csv_path = BASE_DIR / "datasets" / "features" / "online_retail" / "online_retail_II.csv"
+            if not features_csv_path.exists():
+                features_csv_path = BASE_DIR / "datasets" / "training" / "lightgbm_price_train.csv"
+
+            cache = {}
+            if features_csv_path.exists():
+                logger.info(f"Building compact features cache once from {features_csv_path}")
+                try:
+                    df = pd.read_csv(features_csv_path)
+                    if "stockcode" in df.columns:
+                        df["stockcode"] = df["stockcode"].astype(str).str.strip()
+                        last_records = df.groupby("stockcode").last().reset_index()
+                        for _, row in last_records.iterrows():
+                            cache[str(row["stockcode"])] = row.to_dict()
+                except Exception as e:
+                    logger.error(f"Failed to load features dataset: {e}")
+            else:
+                logger.warning(f"Features dataset not found at {features_csv_path}")
+            cls._features_cache = cache
         
     def _load_model(self) -> Any:
         if PricingService._model is None:
@@ -64,17 +72,10 @@ class PricingService:
         """
         Looks up the latest feature row for a given product stockcode.
         """
-        if self.features_df is None:
-            return {}
-            
+        if self._features_cache is None:
+            self._ensure_features_cache()
         cleaned_code = str(stockcode).strip()
-        subset = self.features_df[self.features_df["stockcode"] == cleaned_code]
-        if subset.empty:
-            return {}
-            
-        # Get the last row (latest state chronologically)
-        latest_row = subset.iloc[-1]
-        return latest_row.to_dict()
+        return self._features_cache.get(cleaned_code, {})
         
     def predict_optimal_price(self, features: Dict[str, Any]) -> float:
         """

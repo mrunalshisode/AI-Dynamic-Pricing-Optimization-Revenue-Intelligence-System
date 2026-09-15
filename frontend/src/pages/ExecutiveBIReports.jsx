@@ -39,7 +39,7 @@ export default function ExecutiveBIReports({
           start_date: startDate || undefined,
           end_date: endDate || undefined,
         },
-        timeout: 15000,
+        timeout: 30000,
       });
       setData(res.data);
     } catch (err) {
