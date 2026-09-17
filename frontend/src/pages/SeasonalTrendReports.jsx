@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+import API from "../apiConfig";
 
 export default function SeasonalTrendReports({ products }) {
   const [selectedProductId, setSelectedProductId] = useState("");

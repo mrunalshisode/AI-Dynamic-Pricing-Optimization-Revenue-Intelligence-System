@@ -13,7 +13,7 @@ import {
   Legend,
 } from "recharts";
 
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+import API from "../apiConfig";
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {

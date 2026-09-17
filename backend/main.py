@@ -5,9 +5,11 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
@@ -18,6 +20,9 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
+FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+INDEX_HTML_PATH = FRONTEND_DIST / "index.html"
 
 # Load environment variables from backend/.env if present
 load_dotenv(dotenv_path=BACKEND_DIR / ".env")
@@ -44,6 +49,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 app = FastAPI(title="PricePilot AI API")
+
+if FRONTEND_ASSETS.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="assets")
 
 # Register AI router
 from routes.ai import router as ai_router
@@ -88,6 +96,9 @@ cors_origins = [
     "http://0.0.0.0:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://0.0.0.0:8000",
     "https://ai-dynamic-pricing-frontend.onrender.com",
 ]
 frontend_env = os.getenv("FRONTEND_URL")
@@ -607,7 +618,12 @@ def shutdown_scheduler():
 
 
 @app.get("/")
-def home():
+def home(request: Request):
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/html" not in accept:
+        return {"message": "PricePilot AI backend running"}
+    if INDEX_HTML_PATH.is_file():
+        return FileResponse(INDEX_HTML_PATH)
     return {"message": "PricePilot AI backend running"}
 
 
@@ -828,7 +844,11 @@ def upload_sales_dataset(
 
 
 @app.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept and INDEX_HTML_PATH.is_file():
+        return FileResponse(INDEX_HTML_PATH)
+
     products = db.query(Product).all()
     sales = db.query(SalesRecord).all()
 
@@ -846,3 +866,19 @@ def dashboard(db: Session = Depends(get_db)):
         "total_units_sold": total_units,
         "average_product_price": round(average_price, 2),
     }
+
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str, request: Request):
+    api_prefixes = ("api/", "auth/", "products", "sales", "datasets", "docs", "redoc", "openapi.json")
+    if full_path.startswith(api_prefixes):
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
+    candidate_file = (FRONTEND_DIST / full_path).resolve()
+    if candidate_file.is_file() and str(candidate_file).startswith(str(FRONTEND_DIST.resolve())):
+        return FileResponse(candidate_file)
+
+    if INDEX_HTML_PATH.is_file():
+        return FileResponse(INDEX_HTML_PATH)
+
+    raise HTTPException(status_code=404, detail="Frontend build not found and endpoint not registered")

@@ -19,7 +19,7 @@ import PricingStrategyRecommendations from "./pages/PricingStrategyRecommendatio
 import ExecutiveBIReports from "./pages/ExecutiveBIReports";
 
 
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+import API from "./apiConfig";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const roleOptions = [
   { value: "pricing manager", label: "Pricing Manager" },
