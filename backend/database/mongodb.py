@@ -22,7 +22,7 @@ def load_env_file():
 load_env_file()
 
 # Read configurations
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI")
 if not MONGO_URI:
     user = os.getenv("MONGO_USER")
     password = os.getenv("MONGO_PASSWORD")
@@ -34,7 +34,7 @@ if not MONGO_URI:
     else:
         MONGO_URI = f"mongodb://{host}:{port}/"
 
-MONGO_DB_NAME = os.getenv("MONGO_DB", "pricepilot")
+MONGO_DB_NAME = os.getenv("MONGO_DB") or os.getenv("MONGODB_DATABASE") or "pricepilot"
 
 # Initialize global client and db references with error handling
 client = None

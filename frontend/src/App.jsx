@@ -20,7 +20,10 @@ import ExecutiveBIReports from "./pages/ExecutiveBIReports";
 
 
 import API from "./apiConfig";
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+const GOOGLE_CLIENT_ID =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
+  "1043276756653-dsnn012jrhcm412dimvlurfra738855m.apps.googleusercontent.com";
 const roleOptions = [
   { value: "pricing manager", label: "Pricing Manager" },
   { value: "business analyst", label: "Business Analyst" },
@@ -566,17 +569,72 @@ export default function App() {
   }
 
   async function register() {
+    if (isSubmittingAuth) return;
+
+    if (!auth.email || !auth.password) {
+      showToast("Email and password are required.", "error");
+      return;
+    }
+
+    if (auth.password.length < 6) {
+      showToast("Password must be at least 6 characters.", "error");
+      return;
+    }
+
+    if (auth.password !== auth.confirmPassword) {
+      showToast("Passwords do not match.", "error");
+      return;
+    }
+
     setIsSubmittingAuth(true);
     try {
-      await axios.post(`${API}/auth/register`, {
-        ...auth,
+      const response = await axios.post(`${API}/auth/register`, {
+        name: auth.name.trim() || auth.email.split("@")[0],
+        email: auth.email.trim(),
+        password: auth.password,
         role: getNormalizedRole(auth.role),
       });
-      showToast("Registration successful! Please login.", "success");
-      setMode("login");
+
+      // If backend returned access_token directly, auto-login immediately
+      if (response.data?.access_token) {
+        const normalizedRole = getNormalizedRole(response.data.role || auth.role);
+        const resolvedName = response.data.user_name || auth.name || auth.email.split("@")[0];
+
+        localStorage.setItem("token", response.data.access_token);
+        localStorage.setItem("userName", resolvedName);
+        localStorage.setItem("userRole", normalizedRole);
+        setUserName(resolvedName);
+        setUserRole(normalizedRole);
+        setToken(response.data.access_token);
+        setActiveView("dashboard");
+        setActiveAnchor("");
+        showToast("Registration successful! Welcome to PricePilot AI.", "success");
+      } else {
+        // Fallback: auto-login using the credentials just registered
+        const loginResponse = await axios.post(`${API}/auth/login`, {
+          email: auth.email.trim(),
+          password: auth.password,
+        });
+        const normalizedRole = getNormalizedRole(loginResponse.data.role || auth.role);
+        const resolvedName = auth.name || auth.email.split("@")[0];
+
+        localStorage.setItem("token", loginResponse.data.access_token);
+        localStorage.setItem("userName", resolvedName);
+        localStorage.setItem("userRole", normalizedRole);
+        setUserName(resolvedName);
+        setUserRole(normalizedRole);
+        setToken(loginResponse.data.access_token);
+        setActiveView("dashboard");
+        setActiveAnchor("");
+        showToast("Registration successful! Welcome to PricePilot AI.", "success");
+      }
     } catch (error) {
       console.error("Registration failed", error);
-      const detail = error.response?.data?.detail || "Registration failed. Try again.";
+      const detail =
+        error.response?.data?.detail ||
+        (error.message?.includes("Network Error")
+          ? "Network error: Unable to reach backend service. Please check CORS or connectivity."
+          : "Registration failed. Please check your details and try again.");
       showToast(detail, "error");
     } finally {
       setIsSubmittingAuth(false);
@@ -584,19 +642,27 @@ export default function App() {
   }
 
   async function login() {
+    if (isSubmittingAuth) return;
+
+    if (!auth.email || !auth.password) {
+      showToast("Email and password are required.", "error");
+      return;
+    }
+
     setIsSubmittingAuth(true);
     try {
       const response = await axios.post(`${API}/auth/login`, {
-        email: auth.email,
+        email: auth.email.trim(),
         password: auth.password,
       });
 
       const normalizedRole = getNormalizedRole(response.data.role || auth.role);
+      const resolvedName = auth.email.split("@")[0];
 
       localStorage.setItem("token", response.data.access_token);
-      localStorage.setItem("userName", auth.email.split("@")[0]);
+      localStorage.setItem("userName", resolvedName);
       localStorage.setItem("userRole", normalizedRole);
-      setUserName(auth.email.split("@")[0]);
+      setUserName(resolvedName);
       setUserRole(normalizedRole);
       setToken(response.data.access_token);
       setActiveView("dashboard");
@@ -604,7 +670,11 @@ export default function App() {
       showToast("Logged in successfully!", "success");
     } catch (error) {
       console.error("Login failed", error);
-      const detail = error.response?.data?.detail || "Login failed. Check your credentials.";
+      const detail =
+        error.response?.data?.detail ||
+        (error.message?.includes("Network Error")
+          ? "Network error: Unable to reach backend service. Please check CORS or connectivity."
+          : "Login failed. Check your credentials.");
       showToast(detail, "error");
     } finally {
       setIsSubmittingAuth(false);
@@ -658,10 +728,17 @@ export default function App() {
       setUserName(userName);
       setUserRole(normalizedRole);
       setToken(googleResponse.data.access_token);
+      setActiveView("dashboard");
+      setActiveAnchor("");
       showToast("Logged in with Google successfully!", "success");
     } catch (error) {
       console.error("Google sign-in failed", error);
-      showToast("Google sign-in failed. Please try again.", "error");
+      const detail =
+        error.response?.data?.detail ||
+        (error.message?.includes("Network Error")
+          ? "Network error: Unable to reach backend service during Google sign-in."
+          : "Google sign-in failed. Please try again.");
+      showToast(detail, "error");
     }
   }
 

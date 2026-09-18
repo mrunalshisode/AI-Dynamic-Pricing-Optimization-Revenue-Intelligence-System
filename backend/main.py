@@ -99,6 +99,7 @@ cors_origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://0.0.0.0:8000",
+    "https://pricepilot-mrunal17.vercel.app",
     "https://ai-dynamic-pricing-frontend.onrender.com",
 ]
 frontend_env = os.getenv("FRONTEND_URL")
@@ -111,9 +112,9 @@ if frontend_env:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"https://.*\.onrender\.com",
+    allow_origin_regex=r"^https://.*\.onrender\.com$|^https://.*\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -487,10 +488,10 @@ def seed_competitor_data(db: Session):
 
 
 class RegisterRequest(BaseModel):
-    name: str
+    name: str = ""
     email: str
     password: str
-    role: str = "manager"
+    role: str = "pricing manager"
 
 
 class LoginRequest(BaseModel):
@@ -645,7 +646,15 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
 
-    return {"message": "User registered successfully"}
+    token = create_token({"sub": user.email, "role": user.role})
+
+    return {
+        "message": "User registered successfully",
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "user_name": user.name or user.email.split("@")[0],
+    }
 
 
 @app.post("/auth/login")
