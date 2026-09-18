@@ -581,13 +581,6 @@ A comprehensive visual gallery of the live PricePilot AI platform across user au
 *Real-time price comparison against competitors across catalog categories with variance benchmarking.*
 ![Pricing Comparison](docs/screenshots/Pricing%20Comparison.png)
 
-#### Retail Price Distribution & Empirical Density
-*Historical price distribution across retail catalog products utilized during gradient boosted tree training.*
-![Price Distribution](docs/screenshots/price_distribution.png)
-
-#### Feature Correlation Matrix
-*Cross-correlation matrix analyzing inter-dependencies between sales velocity, rolling volume, temporal features, and transaction revenue.*
-![Correlation Matrix](docs/screenshots/correlation_matrix.png)
 
 ---
 
@@ -595,17 +588,7 @@ A comprehensive visual gallery of the live PricePilot AI platform across user au
 *Interactive demand forecasting workspace comparing historical sales trends against model predictions.*
 ![Demand Forecast](docs/screenshots/Demand%20Forecast.png)
 
-#### Multi-Horizon Prophet Demand Forecast
-*Probabilistic 7-day, 30-day, and 90-day time-series forecasting with 95% uncertainty confidence intervals.*
-![Demand Forecasting Prophet](docs/screenshots/demand_forecasting_prophet.png)
 
-#### Time-Series Trend Decomposition
-*Long-term structural growth trend analysis capturing macroeconomic and sales velocity shifts.*
-![Trend Analysis](docs/screenshots/trend_analysis.png)
-
-#### Seasonality Decomposition Patterns
-*Day-of-week and yearly seasonality curves capturing cyclical demand surges, weekend effects, and holiday purchasing.*
-![Seasonality Patterns](docs/screenshots/seasonality_patterns.png)
 
 ---
 
