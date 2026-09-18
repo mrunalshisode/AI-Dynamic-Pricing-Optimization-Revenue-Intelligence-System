@@ -155,35 +155,35 @@ PricePilot AI is architected as a decoupled, multi-tier cloud application:
 
 ```mermaid
 graph TD
-    subgraph Client Tier (Vercel)
-        UI[React 19 + Vite SPA]
-        Tailwind[Tailwind CSS Design System]
-        Recharts[Recharts Visualization Engine]
-        GSI[Google Identity Services SDK]
+    subgraph CLIENT["Client Tier (Vercel)"]
+        UI["React 19 + Vite SPA"]
+        Tailwind["Tailwind CSS Design System"]
+        Recharts["Recharts Visualization Engine"]
+        GSI["Google Identity Services SDK"]
     end
 
-    subgraph API Gateway & Application Tier (Render)
-        FastAPI[FastAPI REST API Server]
-        CORS[Starlette CORS Middleware]
-        Auth[JWT & OAuth2 Security Layer]
-        Scheduler[APScheduler Background Worker]
+    subgraph APIGW["API Gateway & Application Tier (Render)"]
+        FastAPI["FastAPI REST API Server"]
+        CORS["Starlette CORS Middleware"]
+        Auth["JWT & OAuth2 Security Layer"]
+        Scheduler["APScheduler Background Worker"]
     end
 
-    subgraph AI & ML Intelligence Engine
-        XGB[XGBoost Price Prediction Model]
-        LGB[LightGBM Price & Demand Regressor]
-        ProphetModel[Facebook Prophet Time-Series Engine]
-        RecEngine[Revenue Optimization Engine]
+    subgraph AIML["AI & ML Intelligence Engine"]
+        XGB["XGBoost Price Prediction Model"]
+        LGB["LightGBM Price & Demand Regressor"]
+        ProphetModel["Facebook Prophet Time-Series Engine"]
+        RecEngine["Revenue Optimization Engine"]
     end
 
-    subgraph Persistence & Storage Tier
-        Postgres[(PostgreSQL - ACID Relational Store)]
-        Mongo[(MongoDB Atlas - Unstructured Telemetry)]
-        Artifacts[Joblib / Pickle Model Registry]
+    subgraph STORAGE["Persistence & Storage Tier"]
+        Postgres[("PostgreSQL (ACID Relational Store)")]
+        Mongo[("MongoDB Atlas (Unstructured Telemetry)")]
+        Artifacts["Joblib / Pickle Model Registry"]
     end
 
-    UI -->|HTTPS / REST API| CORS
-    GSI -->|OAuth Credential| Auth
+    UI -->|"HTTPS / REST API"| CORS
+    GSI -->|"OAuth Credential"| Auth
     CORS --> FastAPI
     FastAPI --> Auth
     Auth --> FastAPI
@@ -206,11 +206,11 @@ The end-to-end operational flow follows this sequence:
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Business User / Manager
-    participant Frontend as React Frontend (Vercel)
-    participant Backend as FastAPI Backend (Render)
-    participant ML as ML Inference Engine
-    participant DB as PostgreSQL & MongoDB
+    actor User as "Business User / Manager"
+    participant Frontend as "React Frontend (Vercel)"
+    participant Backend as "FastAPI Backend (Render)"
+    participant ML as "ML Inference Engine"
+    participant DB as "PostgreSQL & MongoDB"
 
     User->>Frontend: Register or Login (Email/Password or Google)
     Frontend->>Backend: POST /auth/login or /auth/register
