@@ -1,6 +1,18 @@
 import os
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent
+
+# Ensure backend directory is first in sys.path so modules like database, routes, services resolve correctly
+backend_dir_str = str(BACKEND_DIR)
+if backend_dir_str not in sys.path:
+    sys.path.insert(0, backend_dir_str)
+elif sys.path[0] != backend_dir_str:
+    sys.path.remove(backend_dir_str)
+    sys.path.insert(0, backend_dir_str)
 
 import pandas as pd
 import requests
@@ -18,8 +30,6 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 FRONTEND_ASSETS = FRONTEND_DIST / "assets"
 INDEX_HTML_PATH = FRONTEND_DIST / "index.html"
@@ -32,7 +42,10 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ALLOWED_ROLES = {"admin", "pricing manager", "business analyst"}
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
-from database.postgres import POSTGRES_URL
+try:
+    from database.postgres import POSTGRES_URL
+except (ImportError, ModuleNotFoundError):
+    from backend.database.postgres import POSTGRES_URL
 DATABASE_URL = POSTGRES_URL or os.getenv("DATABASE_URL") or os.getenv("INTERNAL_DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
